@@ -1,8 +1,6 @@
 #import "Cfg.typ": *
 #import "tsinswreng-auto-heading.typ": *
 #import "Target.typ": *
-// 回出處腳本的本體（read 一個 .js）；BackNavScript 要用它。
-#import "RawBackNavScript.typ": *
 // ── 概念鏈的概念登記表 ──
 // 概念鏈文章的詞條由各篇自己的詞條工廠（MkTerm 之類）造，每造一條就
 // 用 RegisterConcept 把概念名登記進來。下面的 show ref 靠它認出
@@ -69,28 +67,3 @@
 	}
 }
 
-#let BackNavScript(..cfg) = RawBackNavScript.replace(
-	"__MVN_CFG__",
-	json.encode({
-		let o = cfg.named()
-		(
-			// 在哪個容器裏找、條目選什麼、回跳鏈接自己的 class、
-			// sessionStorage 的鍵、鏈接文案。
-			scope: o.at("scope", default: ".mvn-article"),
-			item: o.at("item", default: ".mvn-term"),
-			back: o.at("back", default: "mvn-term-back"),
-			key: o.at("key", default: "mvn-term-source"),
-			label: o.at("label", default: "↑"),
-		)
-	}),
-)
-
-// 把詞條表那一段（或整篇）包進來，腳本掛在它後面。
-// 一篇只包一次：包兩次會掛兩支腳本，兩套 click／hashchange 互搶同一條記錄。
-#let BackNav(cont, ..cfg) = {
-	cont
-	if Target == TargetHtml {
-		// 顯式 #(...) 是必要的：直接寫 [#Str] 會把變量名當內容解析。
-		html.elem("script")[#(BackNavScript(..cfg))]
-	}
-}
