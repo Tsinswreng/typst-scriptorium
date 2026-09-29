@@ -80,7 +80,7 @@
 			item: o.at("item", default: ".mvn-term"),
 			back: o.at("back", default: "mvn-term-back"),
 			key: o.at("key", default: "mvn-term-source"),
-			label: o.at("label", default: "◀"),
+			label: o.at("label", default: "↑"),
 		)
 	}),
 )
