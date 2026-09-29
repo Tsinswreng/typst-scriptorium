@@ -33,7 +33,7 @@
 #let ColorQuoteBack = ColorCodeBack
 #let ColorQuoteBorder = ColorCodeBorder
 #let ColorQuoteLeftBorder = rgb("#008888")
-#let ColorRefText = rgb("#00cccc")
+#let ColorRefText = rgb("#00dddd")
 #let ColorRefUnderline = ColorRefText
 #let ColorLinkText = ColorRefText
 // 多行代碼塊右上角的語言標籤：文本取自圍欄 info string（寫 `typst` 的塊顯示 typst）。
