@@ -1,6 +1,8 @@
 #import "Cfg.typ": *
 #import "tsinswreng-auto-heading.typ": *
 #import "Target.typ": *
+// 回出處腳本的本體（read 一個 .js）；BackNavScript 要用它。
+#import "RawBackNavScript.typ": *
 // ── 概念鏈的概念登記表 ──
 // 概念鏈文章的詞條由各篇自己的詞條工廠（MkTerm 之類）造，每造一條就
 // 用 RegisterConcept 把概念名登記進來。下面的 show ref 靠它認出
