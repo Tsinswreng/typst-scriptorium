@@ -32,6 +32,14 @@
 // 標籤名要與概念名逐字一致：引用時拿標籤名查登記表。
 // 舊寫法 #MkTerm[概念名][詳解]<概念名>（標籤在條目末尾、附着在整個詞條塊上）
 // 仍然可用，兩種寫法可在同一檔混用、逐條遷移；新條目一律用開頭寫法。
+//
+// 另有「先解析再委託」的前置寫法（概念名只寫一遍）：
+//   #T[-<概念名>][詳解]
+// T 從第一個參數的 label 字段解析出標籤值，
+// 用名字合成標題、帶 label: 委託本工廠；
+// 標籤值經 H(label:) 直接附着在標題元素上（F12 仍跳調用處，
+// 不是函數內構造），連字號載體整個丟棄、兩靶都不出現。
+// label: 也可顯式傳入，供其他工廠復用同一落點語義。
 // 文章之間互不干擾——沒登記過概念的文檔，那張表是空的，
 // show ref 的概念分支永不觸發，figure 的「圖N」與標題的章節號一概照舊。
 // 登記表讀的是 final()（全篇最末的值），因為正文的引用都在文末詞條之前。
@@ -47,6 +55,7 @@
 	descr,
 	class: "mvn-term",
 	bar-color: ColorQuoteLeftBorder,
+	label: none,
 ) = {
 	// 概念名必須是純文字：引用靠標籤名查表，登記的必須是同一個名字。
 	// 帶裝飾的內容（比如 #underline[…]）取不出 text，
@@ -57,9 +66,17 @@
 	}
 	RegisterConcept(Name)
 	// 兩靶共用同一段內容，故先造好再各自包裹。
-	let Body = H[#display][
-		#descr
-	]
+	// label: 給了就由 H(label:) 把標籤值附着在標題元素上
+	// （跳轉落點＝標題）；沒給則維持原行爲（標籤隨 display 進標題）。
+	let Body = if label != none {
+		H(label: label)[#display][
+			#descr
+		]
+	} else {
+		H[#display][
+			#descr
+		]
+	}
 	if Target == TargetHtml {
 		html.elem("div", attrs: (class: class))[#Body]
 	} else {
