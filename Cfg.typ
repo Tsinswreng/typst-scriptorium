@@ -49,3 +49,5 @@
 #let ColorListNum = ColorHeadingNum //rgb("00dddd")
 #let FigureCaptionTextSize = 0.9em
 #let FigureCaptionTextColor = luma(215)
+#let ListIndent = 1em
+#let EnumIndent = 1em
