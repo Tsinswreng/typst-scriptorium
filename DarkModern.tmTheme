@@ -1,0 +1,297 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!-- VSCode Dark Modern 主題的 Typst 移植版。
+	來源鏈: dark_vs.json (基礎) -> dark_plus.json (覆蓋) -> Dark Modern (無 token 覆蓋)
+	-> 用戶 settings.json 的 tokenColorCustomizations (注釋、字符串覆蓋)。
+	規則順序即優先級: 後者覆蓋前者。 -->
+<plist version="1.0">
+<dict>
+	<key>name</key>
+	<string>Dark Modern (Typst)</string>
+	<key>settings</key>
+	<array>
+		<dict>
+			<key>settings</key>
+			<dict>
+				<key>background</key>
+				<string>#1F1F1F</string>
+				<key>foreground</key>
+				<string>#CCCCCC</string>
+			</dict>
+		</dict>
+		<!-- 兜底: 所有 source 下的 token 默認 #CCCCCC (VSCode editor.foreground) -->
+		<dict>
+			<key>name</key>
+			<string>Default source</string>
+			<key>scope</key>
+			<string>source</string>
+			<key>settings</key>
+			<dict>
+				<key>foreground</key>
+				<string>#CCCCCC</string>
+			</dict>
+		</dict>
+		<dict>
+			<key>name</key>
+			<string>Comment</string>
+			<key>scope</key>
+			<string>comment</string>
+			<key>settings</key>
+			<dict>
+				<key>foreground</key>
+				<string>#81C784</string>
+			</dict>
+		</dict>
+		<dict>
+			<key>name</key>
+			<string>String</string>
+			<key>scope</key>
+			<string>string</string>
+			<key>settings</key>
+			<dict>
+				<key>foreground</key>
+				<string>#FFBEA5</string>
+			</dict>
+		</dict>
+		<dict>
+			<key>name</key>
+			<string>Numeric</string>
+			<key>scope</key>
+			<string>constant.numeric</string>
+			<key>settings</key>
+			<dict>
+				<key>foreground</key>
+				<string>#B5CEA8</string>
+			</dict>
+		</dict>
+		<dict>
+			<key>name</key>
+			<string>Language constant</string>
+			<key>scope</key>
+			<string>constant.language</string>
+			<key>settings</key>
+			<dict>
+				<key>foreground</key>
+				<string>#569CD6</string>
+			</dict>
+		</dict>
+		<dict>
+			<key>name</key>
+			<string>Escape char</string>
+			<key>scope</key>
+			<string>constant.character.escape</string>
+			<key>settings</key>
+			<dict>
+				<key>foreground</key>
+				<string>#D7BA7D</string>
+			</dict>
+		</dict>
+		<dict>
+			<key>name</key>
+			<string>Regexp constant</string>
+			<key>scope</key>
+			<string>constant.regexp</string>
+			<key>settings</key>
+			<dict>
+				<key>foreground</key>
+				<string>#646695</string>
+			</dict>
+		</dict>
+		<dict>
+			<key>name</key>
+			<string>Operator</string>
+			<key>scope</key>
+			<string>keyword.operator</string>
+			<key>settings</key>
+			<dict>
+				<key>foreground</key>
+				<string>#D4D4D4</string>
+			</dict>
+		</dict>
+		<dict>
+			<key>name</key>
+			<string>Keyword / storage / type keyword</string>
+			<key>scope</key>
+			<string>keyword, storage, storage.type, storage.modifier, variable.language, constant.other.color</string>
+			<key>settings</key>
+			<dict>
+				<key>foreground</key>
+				<string>#569CD6</string>
+			</dict>
+		</dict>
+		<!-- 控制流關鍵詞必須排在 keyword 之後 (dark_plus 覆蓋 dark_vs) -->
+		<dict>
+			<key>name</key>
+			<string>Control keyword</string>
+			<key>scope</key>
+			<string>keyword.control</string>
+			<key>settings</key>
+			<dict>
+				<key>foreground</key>
+				<string>#C586C0</string>
+			</dict>
+		</dict>
+		<dict>
+			<key>name</key>
+			<string>Function name</string>
+			<key>scope</key>
+			<string>entity.name.function, support.function</string>
+			<key>settings</key>
+			<dict>
+				<key>foreground</key>
+				<string>#DCDCAA</string>
+			</dict>
+		</dict>
+		<dict>
+			<key>name</key>
+			<string>Type / class / namespace</string>
+			<key>scope</key>
+			<string>support.type, support.class, entity.name.type, entity.name.class, entity.name.namespace, entity.name.scope-resolution, entity.other.attribute, support.constant.math, support.constant.dom, entity.other.inherited-class</string>
+			<key>settings</key>
+			<dict>
+				<key>foreground</key>
+				<string>#4EC9B0</string>
+			</dict>
+		</dict>
+		<dict>
+			<key>name</key>
+			<string>Variable</string>
+			<key>scope</key>
+			<string>variable, meta.definition.variable.name, support.variable, entity.name.variable</string>
+			<key>settings</key>
+			<dict>
+				<key>foreground</key>
+				<string>#9CDCFE</string>
+			</dict>
+		</dict>
+		<!-- 常量變量排在 variable 之後覆蓋 -->
+		<dict>
+			<key>name</key>
+			<string>Constant variable</string>
+			<key>scope</key>
+			<string>variable.other.constant, variable.other.enummember</string>
+			<key>settings</key>
+			<dict>
+				<key>foreground</key>
+				<string>#4FC1FF</string>
+			</dict>
+		</dict>
+		<dict>
+			<key>name</key>
+			<string>Tag</string>
+			<key>scope</key>
+			<string>entity.name.tag</string>
+			<key>settings</key>
+			<dict>
+				<key>foreground</key>
+				<string>#569CD6</string>
+			</dict>
+		</dict>
+		<dict>
+			<key>name</key>
+			<string>Attribute name</string>
+			<key>scope</key>
+			<string>entity.other.attribute-name</string>
+			<key>settings</key>
+			<dict>
+				<key>foreground</key>
+				<string>#9CDCFE</string>
+			</dict>
+		</dict>
+		<dict>
+			<key>name</key>
+			<string>Label</string>
+			<key>scope</key>
+			<string>entity.name.label</string>
+			<key>settings</key>
+			<dict>
+				<key>foreground</key>
+				<string>#C8C8C8</string>
+			</dict>
+		</dict>
+		<dict>
+			<key>name</key>
+			<string>Invalid</string>
+			<key>scope</key>
+			<string>invalid</string>
+			<key>settings</key>
+			<dict>
+				<key>foreground</key>
+				<string>#F44747</string>
+			</dict>
+		</dict>
+		<dict>
+			<key>name</key>
+			<string>Markup heading</string>
+			<key>scope</key>
+			<string>markup.heading</string>
+			<key>settings</key>
+			<dict>
+				<key>foreground</key>
+				<string>#569CD6</string>
+				<key>fontStyle</key>
+				<string>bold</string>
+			</dict>
+		</dict>
+		<dict>
+			<key>name</key>
+			<string>Markup bold</string>
+			<key>scope</key>
+			<string>markup.bold</string>
+			<key>settings</key>
+			<dict>
+				<key>foreground</key>
+				<string>#569CD6</string>
+				<key>fontStyle</key>
+				<string>bold</string>
+			</dict>
+		</dict>
+		<dict>
+			<key>name</key>
+			<string>Markup italic</string>
+			<key>scope</key>
+			<string>markup.italic</string>
+			<key>settings</key>
+			<dict>
+				<key>foreground</key>
+				<string>#C586C0</string>
+				<key>fontStyle</key>
+				<string>italic</string>
+			</dict>
+		</dict>
+		<dict>
+			<key>name</key>
+			<string>Markup inserted</string>
+			<key>scope</key>
+			<string>markup.inserted</string>
+			<key>settings</key>
+			<dict>
+				<key>foreground</key>
+				<string>#B5CEA8</string>
+			</dict>
+		</dict>
+		<dict>
+			<key>name</key>
+			<string>Markup deleted</string>
+			<key>scope</key>
+			<string>markup.deleted</string>
+			<key>settings</key>
+			<dict>
+				<key>foreground</key>
+				<string>#FFBEA5</string>
+			</dict>
+		</dict>
+		<dict>
+			<key>name</key>
+			<string>Markup raw</string>
+			<key>scope</key>
+			<string>markup.inline.raw, markup.raw</string>
+			<key>settings</key>
+			<dict>
+				<key>foreground</key>
+				<string>#CE9178</string>
+			</dict>
+		</dict>
+	</array>
+</dict>
+</plist>
