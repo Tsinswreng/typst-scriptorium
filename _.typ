@@ -1,7 +1,7 @@
-#import "_Common/Cfg.typ": *
-#import "_Common/tsinswreng-auto-heading.typ": *
-#import "_Common/Target.typ": *
-#import "_Common/concept-chain.typ": *
+#import "Cfg.typ": *
+#import "tsinswreng-auto-heading.typ": *
+#import "Target.typ": *
+#import "concept-chain.typ": *
 
 #import "@preview/cuti:0.4.0": regex-fakebold, show-cn-fakebold, show-cn-fakeitalic
 #import "@preview/numbly:0.1.0": numbly
