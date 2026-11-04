@@ -1,0 +1,277 @@
+/* Mvn 發布頁樣式。源檔在本目錄，Mvn.csx 讀入後寫成發布目錄的 _mvn.css。
+   值與 _Common.typ 的 PDF 靶一一對應；改這裏要同步網站的
+   tsinswreng.github.io/src/styles.css 文章段，反之亦然。
+   換算基準：--mvn-em 就是 PDF 靶的 1em = _Common.typ 的 1.5em × 11pt = 16.5pt。 */
+
+:root {
+	--mvn-em: 16.5pt;
+	/* set par(leading: 1em) 的實測行距 28.5pt ÷ 16.5pt。 */
+	--mvn-line-height: 1.727;
+	/* 塊級／行內代碼的字號：實測 13.2pt = 正文的 0.8em。
+	   _Common.typ 寫的 size: RawTextSize（1em）錨在 Typst 內建 raw 的 0.8em 上，
+	   是空操作，故實測仍是 0.8em。語言標籤的 0.8em 也錨在這個尺寸上，
+	   實測 10.56pt，故下面再乘一次 0.8。 */
+	--mvn-code-em: calc(0.8 * var(--mvn-em));
+	/* 代碼塊內部行距：實測 21.75pt ÷ 13.2pt。 */
+	--mvn-code-line-height: 1.648;
+	/* Typst 的行框高度只等於字體本身的 ascent+descent（實測 ≈ 0.74em），
+	   行距是加在行與行之間；CSS 的行框高度等於 line-height，行距被平分到上下。
+	   塊狀元素要與 PDF 一樣緊，內距就得扣掉多出來的半行距。 */
+	--mvn-line-box: 0.74;
+	--mvn-line-slack: calc((var(--mvn-line-height) - var(--mvn-line-box)) * var(--mvn-em) / 2);
+	--mvn-code-line-slack: calc((var(--mvn-code-line-height) - var(--mvn-line-box)) * var(--mvn-code-em) / 2);
+}
+
+html, body {
+	margin: 0;
+	background: #000; /* ColorBack */
+	color: #fff; /* ColorFore */
+	color-scheme: dark;
+}
+
+body {
+	box-sizing: border-box;
+	min-height: 100vh;
+	padding: calc(1 * var(--mvn-em)); /* set page(margin: 1em) */
+	font-family: "Noto Serif SC", "Times New Roman", serif;
+	font-size: var(--mvn-em);
+	line-height: var(--mvn-line-height);
+}
+
+strong {
+	color: #00ffff; /* ColorStrong；PDF 另有假粗描邊，HTML 用真粗體 */
+}
+
+h1, h2, h3, h4, h5, h6 {
+	/* Typst 的 SpacingHeadingAbove/Below 是 1.5em，但那 1.5em 含了一條行距；
+	   CSS 的 line-height 已經含行距，故這裡只留 0.5em。以下同理。 */
+	margin: calc(0.5 * var(--mvn-em)) 0;
+	font-weight: 700;
+}
+
+/* 一級標題（HTML 的 h1 留給題名）。PDF 居中。
+   字號：_Common.typ 的 set text(size: 1em) 之 em 錨在 Typst 內建標題字號上，
+   故一、二級實際渲染成 1.4em／1.2em，不是正文大小。 */
+h2 {
+	font-size: 1.4em;
+	text-align: center;
+}
+
+h3 {
+	font-size: 1.2em;
+}
+
+h4, h5, h6 {
+	font-size: 1em;
+}
+
+/* 題名（#title）。PDF 居中、下方 1pt #00aaaa 短線，線長等於文字寬。
+   網站那套由匯入器把題名搬去 hero，故只有本檔需要這條。 */
+h1 {
+	width: fit-content;
+	/* Typst 的 SpacingTitleAbove/Below 是 1em，減掉行距後為 0；
+	   上方留白由 body 的 padding（對齊 PDF 頁邊距）提供。 */
+	margin: 0 auto;
+	padding-bottom: calc(0.35 * var(--mvn-em)); /* show title 的 box inset */
+	border-bottom: 1pt solid #00aaaa; /* ColorVertBarSize + ColorTitleUnderbar */
+	font-size: 1.7em; /* Typst 內建 title 字號 */
+	text-align: center;
+}
+
+/* 標題編號：_Common.typ 在 HTML 靶輸出的 span。
+   HTML 導出會丟掉 text(fill:)，故顏色只能落在 CSS 上。 */
+.mvn-heading-num {
+	color: #e6e6e6; /* ColorHeadingNum = luma(230) */
+}
+
+.mvn-heading-bar {
+	color: #00aaaa; /* ColorVertBar */
+	font-size: 1.2em; /* 與 PDF 靶的 size: 1.2em 同一相對關係 */
+}
+
+p {
+	margin: calc(1.5 * var(--mvn-em)) 0; /* ParSpacing 2.5em 減一條行距（1em） */
+}
+
+/* P() 的首行縮排在 Typst 是 h(2em)，HTML 導出丟掉 h，由 text-indent 補回。
+   只給 article 的直接子段落：列表項內的多段在 PDF 也不縮排。 */
+.mvn-article > p {
+	text-indent: calc(2 * var(--mvn-em));
+}
+
+a {
+	color: #00cccc; /* ColorLinkText；下劃線沿用瀏覽器默認，對齊 PDF 的 U() */
+}
+
+ul, ol {
+	margin: calc(0.2 * var(--mvn-em)) 0; /* Typst 塊默認間距 1.2em 減一條行距 */
+	/* 列表項改爲「首行縮進、續行頂格」（_Common.typ 重造 list.item/enum.item）：
+	   縮進不再由列表整體 padding 提供，改由 li 的 text-indent 提供；
+	   marker 收進首行內，跟着 text-indent 縮進。 */
+	padding-inline-start: 0;
+	list-style-position: inside;
+}
+
+li {
+	text-indent: calc(2 * var(--mvn-em)); /* ListIndent/EnumIndent = CustomPIndent */
+}
+
+/* 嵌套層級：首行縮進逐級加深（PDF 靶是 D×ListIndent），續行仍頂格。 */
+li li {
+	text-indent: calc(4 * var(--mvn-em));
+}
+
+li li li {
+	text-indent: calc(6 * var(--mvn-em));
+}
+
+li::marker {
+	color: #e6e6e6; /* ColorListNum */
+}
+
+figure {
+	margin: calc(0.2 * var(--mvn-em)) 0; /* Typst 塊默認間距 1.2em 減一條行距 */
+	text-align: center; /* PDF 是居中對齊 */
+}
+
+figcaption {
+	margin-top: calc(0.5 * var(--mvn-em));
+	font-size: 0.9em; /* FigureCaptionTextSize */
+	color: #d7d7d7; /* FigureCaptionTextColor = luma(215) */
+}
+
+/* 表格 figure 的 caption 在表上方（_Common.typ 對 kind: table 設 figure.caption(position: top)）。
+   DOM 順序已把 figcaption 放在 table 前；這裏只把那 0.5em 間距從 caption 上方
+   挪到 caption 與表之間。 */
+figcaption.mvn-table-caption {
+	margin-top: 0;
+	margin-bottom: calc(0.5 * var(--mvn-em));
+}
+
+img {
+	max-width: 100%;
+	height: auto;
+}
+
+table {
+	border-collapse: collapse;
+}
+
+th, td {
+	border: 1px solid #fff; /* set table(stroke: ColorFore) */
+	padding: 0.25em 0.5em;
+}
+
+/* 多行代碼塊。_Common.typ 的 HTML 靶輸出 div.mvn-code-block，不帶行內樣式；
+   PDF 靶的底色 ColorCodeBack、1pt ColorCodeBorder、內距 0.75em（錨在代碼字號上）、無圓角。 */
+.mvn-code-block {
+	margin: calc(0.2 * var(--mvn-em)) 0; /* Typst 塊默認間距 1.2em 減一條行距 */
+	padding: calc(0.75 * var(--mvn-code-em) - var(--mvn-code-line-slack)) calc(0.75 * var(--mvn-code-em));
+	/* 字號落在塊上，塊內的行框（含 pre 的 strut）才都是代碼的行高。 */
+	font-size: var(--mvn-code-em);
+	background: #002020;
+	border: 1pt solid #006060;
+}
+
+pre {
+	margin: 0;
+	padding: 0;
+	border: none;
+	background: none;
+	overflow-x: auto;
+}
+
+code {
+	font-family: Consolas, "Noto Serif SC", monospace;
+	font-size: var(--mvn-code-em); /* 與 PDF 靶同大：正文的 0.8em */
+	color: #fff;
+	background: #004040; /* ColorInlineCodeBack */
+	padding: 0 calc(0.4 * var(--mvn-code-em)); /* RawInset；縱向在 PDF 用 outset，不佔行高 */
+}
+
+/* 塊級代碼的普通文本：剝掉行內 chip 樣式，行距改用代碼塊自己的。 */
+.mvn-code-block code {
+	padding: 0;
+	background: none;
+	color: #fff;
+	line-height: var(--mvn-code-line-height);
+}
+
+/* 語言標籤：PDF 是代碼之上、右對齊的一行。
+   這裡讀 code 的 data-lang 屬性生成，故未重建的舊頁面也會有標籤。 */
+code[data-lang]::before {
+	content: attr(data-lang);
+	display: block;
+	padding-bottom: calc(0.4 * var(--mvn-code-em)); /* block(below: 0.4em)，em 同樣錨在代碼字號上 */
+	font-size: calc(0.8 * var(--mvn-code-em)); /* CodeLangLabelTextSize，實測 10.56pt */
+	line-height: var(--mvn-line-box);
+	color: #00cccc; /* ColorCodeLangLabel */
+	text-align: right;
+}
+
+/* 引用塊。_Common.typ 的 HTML 靶輸出 div.mvn-quote；
+   PDF 只有左側 3pt ColorQuoteLeftBorder，其餘三邊無框。 */
+.mvn-quote {
+	margin: 0; /* SpacingQuote 1em 等於一條行距，減完為 0 */
+	padding: calc(0.75 * var(--mvn-em) - var(--mvn-line-slack)) calc(0.75 * var(--mvn-em))
+		calc(0.75 * var(--mvn-em) - var(--mvn-line-slack)) calc(1 * var(--mvn-em)); /* inset: (left: 1em, rest: 0.75em) */
+	background: #002020; /* ColorQuoteBack */
+	border-left: 3pt solid #008888;
+}
+
+/* Typst 會丟掉塊首尾的 weak 間距，HTML 靠這兩條對齊。 */
+.mvn-quote > :first-child {
+	margin-top: 0;
+}
+
+.mvn-quote > :last-child {
+	margin-bottom: 0;
+}
+
+/* ── 概念鏈詞條（僅 CyberSecurity/hvv-attack.typ 在用）──
+   Typst 側見 hvv-attack.typ 的 MkR 與 show ref。
+   詞條名走 #H（標題），編號、豎線、字號由全局標題規則給出：
+   h3 的字號、.mvn-heading-num 與 .mvn-heading-bar 的顏色，與 PDF 靶同一套。
+   這段只負責 PDF 用 block(...) 畫、而 HTML 導出會丟掉的那些：
+   左豎線 #008888（ColorQuoteLeftBorder）、內距、塊間距。
+   引用鏈接的顏色由 Typst 的行內樣式帶出（#00cccc，ColorRefText）。
+   這段是文章局部樣式，抽取複用時整段搬走即可。 */
+
+/* 詞條塊：PDF 是 block(inset: (left: 1em, rest: 0.2em),
+   above/below: 1.1em, stroke: (left: 3pt + ColorTermBar))。 */
+.mvn-term {
+	margin: calc(1.1 * var(--mvn-em) - var(--mvn-line-slack)) 0;
+	padding: 0.2em calc(0.2 * var(--mvn-em)) 0.2em calc(1 * var(--mvn-em));
+	border-left: 3pt solid #008888;
+}
+
+/* 詞條內首尾段不留邊距，與 .mvn-quote 同理。 */
+.mvn-term > :first-child {
+	margin-top: 0;
+}
+
+.mvn-term > :last-child {
+	margin-bottom: 0;
+}
+
+/* 詞條詳解裏的段落走的是 P()，P() 的首行縮排是 h(2em)，
+   HTML 導出同樣丟掉 h，故要在這裏補回（與 .mvn-article > p 同因）。
+   詞條名是標題，不走 P()。 */
+.mvn-term > p {
+	text-indent: calc(2 * var(--mvn-em));
+}
+
+
+
+/* 正文裏的概念引用：PDF 是下劃線的青色鏈接；
+   HTML 把下劃線壓平一階，加粗一點。
+   內層 span 帶 Typst 輸出的行內 text-decoration: underline，故要覆蓋它。 */
+.mvn-term-ref,
+.mvn-term-ref span {
+	text-decoration: none;
+}
+
+.mvn-term-ref a,
+.mvn-term-ref span {
+	font-weight: 700;
+}
