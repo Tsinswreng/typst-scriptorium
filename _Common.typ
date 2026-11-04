@@ -1,0 +1,596 @@
+#import "_Common/Cfg.typ": *
+#import "_Common/tsinswreng-auto-heading.typ": *
+#import "_Common/Target.typ": *
+#import "_Common/concept-chain.typ": *
+
+#import "@preview/cuti:0.4.0": regex-fakebold, show-cn-fakebold, show-cn-fakeitalic
+#import "@preview/numbly:0.1.0": numbly
+
+#let P(C) = {
+	v(CustomPSpacing)
+	h(CustomPIndent)
+	C
+}
+#let U(C) = {
+	underline(C)
+}
+
+// 列表層級標記數組（原生默認 •‣– 循環），供 _Show 的列表手動重造用。
+#let ListMarkers = ([•], [‣], [–])
+
+// 列表手動重造（PDF 靶）：首行縮進（D×縮進量）、續行頂格。
+// 不用計數器/introspection——list.item 不可定位、
+// show 規則裏 emit 的 counter update 對嵌套 item 讀值不可靠（均實測踩過）。
+// 深度與編號路徑由遞歸參數顯式攜帶；嵌套列表靠 item 塊內的作用域 show 規則
+// 接管（show 規則能穿透 styled 等包裝，手動 walk children 穿不透，已踩）。
+#let ListRender(It, Depth) = {
+	It.children
+		.filter(c => c.func() == list.item)
+		.enumerate()
+		.map(Pair => {
+			let Item = Pair.at(1)
+			block(above: 1em, below: 1em)[
+				#h(ListIndent * Depth)
+				#text(fill: ColorListNum)[#ListMarkers.at(calc.rem(Depth - 1, ListMarkers.len()))]
+				#h(0.5em)
+				#{
+					show list: it => ListRender(it, Depth + 1)
+					show enum: it => EnumRender(it, Depth + 1)
+					Item.body
+				}
+			]
+		})
+		.join()
+}
+#let EnumRender(It, Depth, Path: ()) = {
+	It.children
+		.filter(c => c.func() == enum.item)
+		.enumerate()
+		.map(Pair => {
+			let Item = Pair.at(1)
+			let NumPath = Path + (Pair.at(0) + 1,)
+			block(above: 1em, below: 1em)[
+				#h(EnumIndent * Depth)
+				#text(fill: ColorListNum)[#numbering("1.", ..NumPath)]
+				#h(0.5em)
+				#{
+					show list: it => ListRender(it, Depth + 1)
+					show enum: it => EnumRender(it, Depth + 1, Path: NumPath)
+					Item.body
+				}
+			]
+		})
+		.join()
+}
+
+
+
+#let Lang = sys.inputs.at("Lang", default: "zh-Hant")
+#let LangParts = Lang.split("-")
+#let TypstLang = LangParts.first()
+#let LangFamily = if LangParts.len() >= 2 {
+	LangParts.at(0) + "-" + LangParts.at(1)
+} else {
+	Lang
+}
+
+#let FigureSupplement = if LangFamily == "zh-Hant" {
+	[圖]
+} else if LangFamily == "zh-Hans" or TypstLang == "zh" {
+	[图]
+} else if TypstLang == "en" {
+	[Figure]
+} else {
+	auto
+}
+#let TableSupplement = if LangFamily == "zh-Hant" or LangFamily == "zh-Hans" or TypstLang == "zh" {
+	[表]
+} else if TypstLang == "en" {
+	[Table]
+} else {
+	auto
+}
+#let FigureKindSupplement(Kind) = {
+	if Kind == table {
+		TableSupplement
+	} else {
+		FigureSupplement
+	}
+}
+#let FigureKindText(Kind) = {
+	if Kind == table {
+		if LangFamily == "zh-Hant" or LangFamily == "zh-Hans" or TypstLang == "zh" {
+			"表"
+		} else if TypstLang == "en" {
+			"Table"
+		} else {
+			"Table"
+		}
+	} else if LangFamily == "zh-Hant" {
+		"圖"
+	} else if LangFamily == "zh-Hans" or TypstLang == "zh" {
+		"图"
+	} else if TypstLang == "en" {
+		"Figure"
+	} else {
+		"Figure"
+	}
+}
+
+
+
+
+#let Todo(Title, Body) = {
+	text(red)[#U(Title)]
+	linebreak()
+	box(fill: rgb("#550000"))[#Body]
+}
+
+#let Wip(Title, Body) = {
+	text(yellow)[#U(Title)]
+	linebreak()
+	box(fill: rgb("#555500"))[#Body]
+}
+
+// HTML 不直接寫死相對路徑；先把項目內資產路徑放入 class，交給 Mvn.csx 解析。
+#let HtmlAssetMarkerPrefix = "mvn-img-asset-"
+// BasePath 僅供 PDF image(...) 使用；HtmlBase 是項目根目錄下的資產路徑。
+#let FnImgGen(BasePath, HtmlBase: "assets/") = {
+	let affix = ".gen.png"
+	return Name => {
+		if Target == TargetHtml {
+			html.elem("img", attrs: (
+				class: HtmlAssetMarkerPrefix + HtmlBase + Name + affix,
+				alt: Name,
+			))
+		} else {
+			image(BasePath + Name + affix)
+		}
+	}
+}
+
+// 普通項目圖片。Base 是 PDF 模式相對於本公共文件的路徑，HTML 只保留 Path marker。
+#let ImgPath(Path, Base: ".", alt: none) = {
+	if Target == TargetHtml {
+		html.elem("img", attrs: (
+			class: HtmlAssetMarkerPrefix + Path,
+			alt: if alt == none { Path } else { alt },
+		))
+	} else {
+		image(Base + "/" + Path)
+	}
+}
+
+
+#let _Document(
+	path,
+	format: auto,
+	title: none,
+	author: (), //str[]
+	description: none,
+	keywords: (), //str[]
+	date: auto,
+	body,
+) = {
+	if IsBundle {
+		document(
+			path,
+			format: format,
+			title: title,
+			author: author,
+			description: description,
+			keywords: keywords,
+			date: date,
+		)[#body]
+	} else {
+		body
+	}
+}
+
+
+//#let BaseStroke = 0.05em
+#let HtmlDocument(body) = [
+	#html.elem("article", attrs: (class: "mvn-article"))[#body]
+]
+
+#let _Outline()={
+	
+}
+
+#let _Show(d) = {
+	let PageHeight = if Target == TargetHtml {
+		auto
+	} else {
+		//841.89pt
+		21cm // A5 長邊, 若A4則 29.7 cm
+	}
+
+	// 底邊距要爲頁碼留出空間。
+	// 頁碼被放在正文本區下沿、再按 footer-descent 下沉，
+	// 底邊距太薄（如原來的 1em）會讓頁碼貼住紙邊。
+	set page(
+		margin: (rest: 1em, bottom: 2.4em),
+		fill: ColorBack,
+		height: PageHeight,
+		//width: 14.8cm, // A5短邊 改寬度會出問題, 在typstᶤ繪ʹ圖表中 如鍵位圖等。解決此問題前 勿改頁寬。
+		// 頁碼。默認 number-align 是 center + bottom，即底部居中。
+		numbering: "1",
+		// 默認 30% 會把頁碼放在正文末行正下方、其下留大片空白；
+		// 實測 60% 落在紙底上方約 2–5mm；
+		// 80% 起又貼紙邊，100% 會被推出頁面。
+		footer-descent: 60%,
+	)
+	
+
+	// HTML 靶：CSS 的 strong 規則同色（見頂部「HTML 靶樣式」註釋）。
+	show strong: set text(ColorStrong)
+	//show heading: set text(rgb("00ffff"))
+	// 一級標題居中；二級起保持左對齊。
+	// HTML 靶：CSS 的 h2 規則同樣居中（本站 h1 留給題名、頁面標題在 hero 裏）。
+	show heading.where(level: 1): set align(center)
+	// 標題前後間距：PDF 靶二級起與 HTML 靶各級走這條 show-set；
+	// 一級 PDF 靶走下方自訂 block（引用同一對變量）。
+	// typst 0.13 起 heading 的 above/below 參數已移除，
+	// 須 show-set 到 block 上（官方遷移寫法）。
+	show heading: set block(above: SpacingHeadingAbove, below: SpacingHeadingBelow)
+	// 正文行距。行距是段落級屬性，只能走全局 set par（無法進 P()）；
+	// 「不引入全局 set par」的舊決策只針對首行縮排與段距，不涵蓋 leading。
+	set par(
+		leading: SpacingLeading,
+		spacing: ParSpacing
+)
+	// 一級標題：下方粗短線，後距加大。
+	// 實作用 box 底邊框：編號+題文放進 shrink-wrap 的 box，
+	// bottom stroke 即下劃線，線長天然等於文字寬、不會衝過。
+	// （曾試 measure 量寬再畫 line，實測量出的寬度不對、線遠超文字，已棄。）
+	// 線寬 2.5pt（細線在黑底不可見的教訓）。
+	// HTML 靶：底線寬度爲 0，無對應裝飾；前後距由 CSS 的 h2 margin 對齊。
+	show heading.where(level: 1): it => context {
+		if Target == TargetHtml {
+			it
+		} else {
+			let nums = counter(heading).at(it.location())
+			block(sticky: true, width: 100%, above: SpacingHeadingAbove, below: SpacingHeadingBelow)[
+				#align(center)[
+					#box(
+						// 0.35em：避開 1.2em 大號「|」分隔符的下探部分，
+						// 太淺會與其重疊成亮斑。
+						inset: (bottom: 0.35em),
+						stroke: (bottom: 0pt /* 2.5pt */ + ColorCodeBorder),
+					)[
+						// outline() 的合成目錄標題 level 亦爲 1、numbering 顯式爲 none，
+						// 不守衛直接調 it.numbering 會報 expected function, found none。
+						#if it.numbering != none [#(it.numbering)(..nums)] #it.body
+					]
+				]
+			]
+		}
+	}
+	show heading.where(level: 1): set text(size: 1em)
+	show heading.where(level: 2): set text(size: 1em)
+	show heading.where(level: 3): set text(size: 1em)
+	show heading.where(level: 4): set text(size: 1em)
+
+	show title: it => {
+		// 題名是 flow 首元素，block 的 above 屬 weak 間距、在 flow 開頭被丟棄，
+		// 故上方距用 weak: false 的 v 硬推（title 恆居文檔開頭，無中段疊加之虞）。
+		v(SpacingTitleAbove, weak: false)
+		block(below: SpacingTitleBelow)[
+			#box(
+				// 0.35em：避開 1.2em 大號「|」分隔符的下探部分，
+				// 太淺會與其重疊成亮斑。
+				inset: (bottom: 0.35em),
+				stroke: (bottom: ColorVertBarSize + ColorTitleUnderbar),
+			)[#it]
+		]
+	}
+
+	let Styled = {
+		set text(lang: TypstLang)
+		show figure: set figure(
+			supplement: FigureKindSupplement,
+			//placement:
+		)
+		// 表格 figure：caption 顯示在表上方、整體允許跨頁（用戶 2026-10-29 要求）。
+		// 僅 kind 爲 table 的 figure 受影響；圖片 figure 的 caption 仍在下方、不可跨頁。
+		// 跨頁寫法按官方文檔：figure 本身無 breakable 參數，
+		// 靠 show-set 到內層 block 上（內容可斷時 figure 即可斷）。
+		show figure.where(kind: table): set figure.caption(position: top)
+		show figure.where(kind: table): set block(breakable: true)
+		// figure 保留各自的 kind，
+		// 但圖注與引用都使用同一個全局 figure 計數器。
+		show figure.caption: it => context {
+			let Number = counter(figure).at(it.location()).first()
+			let Caption = [
+				#(FigureKindText(it.kind) + str(Number) + it.separator)
+				#it.body
+			]
+
+			// HTML 靶：CSS 的 figcaption 規則同字號同色。
+			set text(
+				size: FigureCaptionTextSize,
+				FigureCaptionTextColor,
+			)
+			if Target == TargetHtml {
+				// 表格的 figcaption 掛 class：
+				// position: top 使 HTML 導出的 DOM 順序天然是 figcaption 在 table 前，
+				// 無需 CSS 重排；class 只供 Article.css 把間距挪到 caption 與表之間。
+				if it.kind == table {
+					html.elem("figcaption", attrs: (class: "mvn-table-caption"))[#Caption]
+				} else {
+					html.elem("figcaption")[#Caption]
+				}
+			} else {
+				Caption
+			}
+		}
+		show ref: it => context {
+			// 注意變量名：被引用的那個元素**不能**叫 Target——
+			// 那是全局的靶別常量，一遮蔽，下面 `Target == TargetHtml` 就恆假，
+			// HTML 靶會誤走 PDF 那一支（曾經踩過：HTML 裏少了 class、
+			// 還多出一層下劃線）。
+			let Refd = it.element
+			if Refd != none and Refd.func() == figure {
+				let Number = counter(figure).at(Refd.location()).first()
+				let Label = FigureKindText(Refd.kind) + str(Number)
+				box[
+					#link(Refd.location())[
+						#set text(ColorRefText)
+						#underline(stroke: ColorRefUnderline + 0.1em)[
+							#Label
+						]
+					]
+				]
+			} else if it.target != none and str(it.target) in ConceptNames.final() {
+				// 概念鏈的引用：顯示概念名（標籤名即概念名，由 RenderTerms 登記）。
+				// 這一支必須排在最後那個 else 之前：詞條標籤附着在普通內容
+				// （block／div）上，一旦落到 else 就會去渲染 `it`，
+				// 直接報 `cannot reference block`。
+				// HTML 靶這一支只造一條可點的鏈接，**不要掛 id**：
+				// 錨點在詞條那一頭，引用這一頭再掛同名 id 就是全篇重複 id，
+				// 瀏覽器認文檔順序裏第一個，點 @概念 就跳到正文裏第一處引用去了。
+				if Target == TargetHtml {
+					// link 先生成再插值：內層調用緊貼內容變量時，
+					// HTML 導出會把內層調用整段當字面文字輸出。
+					let Inner = link(it.target)[#str(it.target)]
+					html.elem("span", attrs: (class: "mvn-term-ref"))[#Inner]
+				} else {
+					// 下劃線已按用戶要求移除：顏色由下方 show link 統一上，
+					// 概念標籤那一支不包 U（與 HTML 靶一致）。
+					link(it.target)[#str(it.target)]
+				}
+			} else {
+				box[
+					#underline(stroke: ColorRefUnderline)[#it]
+				]
+			}
+		}
+		// 概念引用不加下劃線（用戶 2026-10-01 要求，兩靶一致）：
+		// 鏈接目標是已登記的概念標籤時原樣返回（保色、不包 U），
+		// 其餘鏈接（外部 URL、圖N、目錄）照舊下劃線。
+		// 注意：show 規則原樣返回元素會落回更外層的同類規則，
+		// 故在文檔級另寫 show link 壓不掉這條——改樣式只能改這裏（實測）。
+		show link: it => context {
+			set text(ColorLinkText)
+			if type(it.dest) == label and str(it.dest) in ConceptNames.final() {
+				it
+			} else {
+				U[#it]
+			}
+		}
+		show title: set align(center)
+		let ShowCjkTypography(body) = {
+			show regex(CjkChars): set text(font: "Noto Serif SC") // Times New Roman
+			show: show-cn-fakebold
+			show: show-cn-fakeitalic
+			show text.where(weight: "regular"): it => regex-fakebold(
+				//reg-exp: CjkChars,
+				stroke: CjkStroke_Regular,
+				weight: "regular",
+				it,
+			)
+
+			show text.where(weight: "bold"): it => regex-fakebold(
+				reg-exp: CjkChars,
+				stroke: CjkStroke_Bold,
+				weight: "bold",
+				it,
+			)
+			body
+		}
+
+		show: ShowCjkTypography
+
+		set text(
+			size: TextSize,
+			//stroke: 0.02em + ColorFore,
+			ColorFore,
+			//font: "Consolas",
+			//stroke: BaseStroke
+		)
+
+		// token 配色: VSCode Dark Modern 主題，移植自
+		// dark_vs + dark_plus + 用戶 tokenColorCustomizations，
+		// 詳見 DarkModern.tmTheme。
+		// 主題默認色等於環境色的 token 不帶 span，
+		// 普通文本因此落到各條兜底規則：
+		// 塊級代碼（含無 lang 者）跟正文同白，
+		// 行內代碼白字加框（chip）。
+		set raw(theme: "./_Common/DarkModern.tmTheme")
+
+		show raw: set text(
+			font: ("Consolas", "Noto Serif SC"),
+			// 代碼字號：實測仍是正文的 0.8em（13.2pt），不是正文大小。
+			// 原因：Typst 內建 raw show-set 是 0.8em，此處的 1em 錨定在收縮後的
+			// 尺寸上，是空操作。量法：同一串 14 個 M，正文（Consolas 16.5pt）
+			// 寬 127pt，代碼塊內寬 101.5pt，比值 0.8。
+			// 要真的除回去得寫 1.25em（1 / 0.8）；但在改 PDF 靶之前先維持現狀，
+			// 因為 HTML 靶的 Article.css 是按實測值 0.8em（--mvn-code-em）對齊的，
+			// 兩邊要同時改。語言標籤的 0.8em 也錨在這個尺寸上（實測 10.56pt）。
+			size: RawTextSize,
+			//fill: rgb("00ffff")
+		)
+		show raw.where(block: true): it => {
+			if Target == TargetHtml {
+				// HTML 導出不翻譯 block 的 fill/stroke，故輸出帶 class 的 div 包住 pre。
+				// 底色、邊框、內距、無圓角全由 CSS 提供（見頂部「HTML 靶樣式」註釋）；
+				// 不寫行內 style，避免同一件事有兩份值。
+				html.elem("div", attrs: (class: "mvn-code-block"))[
+					#box(width: 100%)[#it]
+				]
+			} else {
+				block(
+					width: 100%,
+					fill: ColorCodeBack,
+					stroke: StrokeCodeBorder + ColorCodeBorder,
+					inset: 0.75em,
+					//radius: 2pt,
+				)[
+					// 語言標籤：代碼塊內右上角、代碼之上單獨一行。
+					// lang 取自圍欄 info string；無 lang 的塊整行不出現。
+					// HTML 靶：由 CSS 讀 code 的 data-lang 屬性生成同一行標籤。
+					#if it.lang != none [
+						#block(width: 100%, below: 0.4em)[
+							#align(right)[
+								#text(
+									size: CodeLangLabelTextSize,
+									fill: ColorCodeLangLabel,
+								)[#it.lang]
+							]
+						]
+					]
+					#it
+				]
+			}
+		}
+		// 行內代碼：白字 + 與塊級代碼同底色同邊框的 chip。
+		// 橫向 inset 提供內距；縱向用 outset 擴框、不佔行高。
+		// box 不可跨行，過長內容會整塊跳行。
+		// HTML 靶不翻譯 box 的 fill/stroke，
+		// 樣式由 CSS 的 code 規則提供（源檔見頂部「HTML 靶樣式」註釋）。
+		show raw.where(block: false): it => {
+			if Target == TargetHtml {
+				it
+			} else {
+				box(
+					fill: ColorInlineCodeBack,
+					//stroke: StrokeCodeBorder + ColorCodeBorder,
+					inset: (x: RawInset),
+					outset: (y: RawInset),
+				)[#set text(fill: ColorFore); #it]
+			}
+		}
+		// 引用塊：與多行代碼塊同底色，左側粗線、其餘三邊細框。
+		// HTML 導出不翻譯 block 的 fill/stroke，分靶處理。
+		show quote.where(block: true): it => {
+			if Target == TargetHtml {
+				// 用 blockquote 保住語義（Typst 內建 HTML 規則本來也導 blockquote，
+				// 本規則接管只是為了加 class，故沿用同一標籤）。
+				// 樣式在 CSS 裏（Article.css 與 site.css 的 .mvn-quote），與 PDF 靶用同一組值。
+				html.elem("blockquote", attrs: (class: "mvn-quote"))[#it.body]
+			} else {
+				block(
+					width: 100%,
+					fill: ColorQuoteBack,
+					stroke: (
+						left: 3pt + ColorQuoteLeftBorder,
+						//rest: StrokeCodeBorder + ColorQuoteBorder,
+					),
+					inset: (left: 1em, rest: 0.75em),
+					above: SpacingQuote,
+					below: SpacingQuote,
+					//radius: 2pt,
+					breakable: true,
+					it.body,
+				)
+			}
+		}
+
+		// 表格天生可跨頁（無 breakable 參數）；
+		// 被 figure 包住時不跨頁的瓶頸在 figure（不可斷塊），
+		// 已由上方 show figure.where(kind: table): set block(breakable: true) 解決。
+		set table(
+			stroke: ColorFore,
+			// 每個單元格的文字上下居中（用戶 2026-10-29 要求）。
+			// horizon 只指定垂直分量，水平對齊沿用默認；
+			// 個別表若在調用處傳 align: 會整體覆蓋此值（本倉庫現無此用法）。
+			align: horizon,
+		)
+		// 標題編號：數字染 ColorNum，「|」分隔符樣式見下。標題文字保持正文白。
+		// numbly 只出數字，分隔符由包裝函數追加着色；
+		// 走 numbering 函數而非 show 規則，
+		// 默認布局、間距、hanging-indent、refs、outline 均不受影響。
+		// HTML 靶丟棄 text(fill:)，故改掛 class 交給 CSS 上色，兩靶視覺一致。
+		let NumOnly = numbly(
+			"{1:1}",
+			"{1}.{2}", // use {level:format} to specify the format
+			"{1}.{2}.{3}",
+			"{1}.{2}.{3}.{4}",
+			"{1}.{2}.{3}.{4}.{5}",
+			// numbly 的 pattern 用完後深層編號格式會突變，
+			// 故補到第 8 層。
+			"{1}.{2}.{3}.{4}.{5}.{6}",
+			"{1}.{2}.{3}.{4}.{5}.{6}.{7}",
+			"{1}.{2}.{3}.{4}.{5}.{6}.{7}.{8}",
+		)
+
+		let HeadingNumbering(..nums) = {
+			if Target == TargetHtml {
+				let Num = html.elem("span", attrs: (class: "mvn-heading-num"))[#NumOnly(..nums)]
+				// 開頭那個空格必須寫成 ~（不換行空格）：
+				// 內容塊首尾的**普通空格**會被 HTML 導出削掉，
+				// 於是「編號 | 標題」在 HTML 靶只剩 | 後面那個空格，
+				// 編號與 | 緊貼在一起。~ 是真字符，不會被削。
+				// PDF 靶那一支不動，仍用普通空格。
+				let Bar = html.elem("span", attrs: (class: "mvn-heading-bar"))[~|]
+				Num + Bar
+			} else {
+				(
+					text(fill: ColorHeadingNum)[#NumOnly(..nums)]
+						+ text(
+							fill: ColorVertBar,
+							size: 1.2em,
+							stroke: 0.02em + ColorVertBar,
+						)[ |]
+				)
+			}
+		}
+		set heading(numbering: HeadingNumbering)
+		// 有序列表編號同染 ColorListNum。走 numbering 函數保持默認布局；
+		// 深層編號統一爲阿拉伯數字（覆蓋默認的第二層 a. 樣式）。
+		// HTML 靶由 CSS 的 li::marker 上色。
+		set enum(numbering: (..nums) => text(fill: ColorListNum)[#numbering("1.", ..nums)])
+		
+				//trial
+		show list: set block(above: 1em, below: 1em)
+		show enum: set block(above: 1em, below: 1em)
+		// 列表項：首行縮進、續行頂格（用戶 2026-10-29 修訂，第三版：手動重造）。
+		// Typst 列表項內建是懸掛縮進：續行鎖在正文列，
+		// 實測 indent／show 規則塞 h／負 par hanging-indent 三路都出不去，
+		// 「首行縮進、換行頂格」只能重造。
+		// PDF 靶由上方 ListRender/EnumRender 遞歸接管（層級縮進 D×ListIndent、
+		// 標記 •‣– 按深度循環、enum 編號路徑顯式攜帶）；
+		// HTML 靶保持原生 li（層級、標記、編號全原生），
+		// 首行縮進由 Article.css 的 li text-indent 補。
+		show list: it => if Target == TargetHtml { it } else { ListRender(it, 1) }
+		show enum: it => if Target == TargetHtml { it } else { EnumRender(it, 1) }
+		if false{//debug only
+			show par: it => block(
+			stroke: (left: 2pt + red),
+			inset: (left: 4pt),
+			width: 100%,
+			it.body,
+		)
+		}
+
+		d//end
+		
+		
+	}
+
+	if Target == TargetHtml {
+		HtmlDocument(Styled)
+	} else {
+		Styled
+	}
+}
