@@ -1,14 +1,14 @@
-// Mvn：以 Typst 文檔入口 manifest 構建可搬運的發布副本。
+// Scriptorium：以 Typst 文檔入口 manifest 構建可搬運的發布副本。
 //
 // 本腳本的核心順序是：讀 manifest -> 複製項目 -> 生成文檔 -> 編譯 HTML
 // -> 從 HTML 發現圖片 -> 生成圖片資產 -> 編譯 PDF -> 修正 HTML 圖片路徑
 // -> 生成 Markdown -> 寫入共用 CSS 並連結 HTML。順序改動可能會讓資產或輸出失效。
 //
-// dotnet script Mvn.csx check AltNav/_Manifest.typ
-// dotnet script Mvn.csx build AltNav/_Manifest.typ
-// dotnet script Mvn.csx list
-// dotnet script Mvn.csx build-all
-// dotnet script Mvn.csx zhihu _Publish/AltNav/Main.html -o _Publish/AltNav/Main.zhihu.html --images zhihu-images.txt
+// dotnet script Scriptorium.csx check AltNav/_Manifest.typ
+// dotnet script Scriptorium.csx build AltNav/_Manifest.typ
+// dotnet script Scriptorium.csx list
+// dotnet script Scriptorium.csx build-all
+// dotnet script Scriptorium.csx zhihu _Publish/AltNav/Main.html -o _Publish/AltNav/Main.zhihu.html --images zhihu-images.txt
 //
 // _Manifest.typ 有兩個 schema：V1 逐個文件列入口；V2 以目錄為單位，
 // SrcDirs 是源碼樹，GeneratedDirs 是整棵由生成器產生的樹。資產和輸出規則由本腳本固定處理。
@@ -931,7 +931,7 @@ sealed class MvnConfig {
 	// 知乎控制台取得的圖片地址目前都位於 pic*.zhimg.com；限制 host 可及早發現複製到非 URL 資料。
 	public string ZhihuImageHostSuffix { get; } = ".zhimg.com";
 	// 无参数时显示的命令行用法。
-	public string UsageText => $"Usage: dotnet script Mvn.csx <check|build|build-all|list|zhihu> [Manifest{TypstDocumentExtension}]";
+	public string UsageText => $"Usage: dotnet script Scriptorium.csx <check|build|build-all|list|zhihu> [Manifest{TypstDocumentExtension}]";
 	// manifest 中声明的 OpenCC 生成器名称。
 	public string OpenCcGeneratorName { get; } = "OpenCC";
 	// manifest 暴露的 OpenCC 转换模式名称。
