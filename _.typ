@@ -1,4 +1,5 @@
 #import "Enum/Cfg.typ" as Cfg
+#import "Enum/Html.typ" as Html
 #import "tsinswreng-auto-heading.typ": *
 #import "Enum/Targets.typ" as Targets
 #import "Target.typ": *
@@ -7,7 +8,7 @@
 #import "@preview/cuti:0.4.0": regex-fakebold, show-cn-fakebold, show-cn-fakeitalic
 #import "@preview/numbly:0.1.0": numbly
 
-// 舊寫法段落：只負責切段（v），不再加 h(CustomPIndent)。
+// 舊寫法段落：只負責切段（v），不再加 h(Cfg.CustomPIndent)。
 // 2026-11-05 起首行縮進由 _Show 的 set par(first-line-indent) 全局承擔；
 // 若保留 h()，它會與全局縮進相加成 4em（實測：P 行 82.5pt、普通段 49.5pt、頁邊 16.5pt）。
 // 保留本函數只是為了讓舊文檔不必改寫。
@@ -20,8 +21,8 @@
 // PDF 靶：顯式造一個 first-line-indent: 0pt 的段落，只作用這一段。
 // HTML 靶：導出 <p class="tswg-scrptm-no-indent">，由 Article.css 的 text-indent: 0 壓回。
 // 只支援單一段落；內容裏再有塊級元素（列表等）請另行包裝。
-#let NoIndent(C) = if Target == Html {
-	html.elem("p", attrs: (class: NoIndentClass))[#C]
+#let NoIndent(C) = if Target == Targets.Html {
+	html.elem("p", attrs: (class: Html.NoIndentClass))[#C]
 } else {
 	par(first-line-indent: 0pt, C)
 }
@@ -64,8 +65,8 @@
 			let Item = Pair.at(1)
 			let NumPath = Path + (Pair.at(0) + 1,)
 			block(above: 1em, below: 1em)[
-				#h(EnumIndent * Depth)
-				#text(fill: ColorListNum)[#numbering("1.", ..NumPath)]
+				#h(Cfg.EnumIndent * Depth)
+				#text(fill: Cfg.ColorListNum)[#numbering("1.", ..NumPath)]
 				#h(0.5em)
 				#{
 					show list: it => ListRender(it, Depth + 1)
@@ -152,7 +153,7 @@
 #let FnImgGen(BasePath, HtmlBase: "assets/") = {
 	let affix = ".gen.png"
 	return Name => {
-		if Target == Html {
+		if Target == Targets.Html {
 			html.elem("img", attrs: (
 				class: HtmlAssetMarkerPrefix + HtmlBase + Name + affix,
 				alt: Name,
@@ -165,7 +166,7 @@
 
 // 普通項目圖片。Base 是 PDF 模式相對於本公共文件的路徑，HTML 只保留 Path marker。
 #let ImgPath(Path, Base: ".", alt: none) = {
-	if Target == Html {
+	if Target == Targets.Html {
 		html.elem("img", attrs: (
 			class: HtmlAssetMarkerPrefix + Path,
 			alt: if alt == none { Path } else { alt },
@@ -204,7 +205,7 @@
 
 //#let BaseStroke = 0.05em
 #let HtmlDocument(body) = [
-	#html.elem("article", attrs: (class: ArticleClass))[#body]
+	#html.elem("article", attrs: (class: Html.ArticleClass))[#body]
 ]
 
 #let _Outline()={
@@ -336,7 +337,7 @@
 				// position: top 使 HTML 導出的 DOM 順序天然是 figcaption 在 table 前，
 				// 無需 CSS 重排；class 只供 Article.css 把間距挪到 caption 與表之間。
 				if it.kind == table {
-					html.elem("figcaption", attrs: (class: TableCaptionClass))[#Caption]
+					html.elem("figcaption", attrs: (class: Html.TableCaptionClass))[#Caption]
 				} else {
 					html.elem("figcaption")[#Caption]
 				}
@@ -346,7 +347,7 @@
 		}
 		show ref: it => context {
 			// 注意變量名：被引用的那個元素**不能**叫 Target——
-			// 那是全局的靶別常量，一遮蔽，下面 `Target == Html` 就恆假，
+			// 那是全局的靶別常量，一遮蔽，下面 `Target == Targets.Html` 就恆假，
 			// HTML 靶會誤走 PDF 那一支（曾經踩過：HTML 裏少了 class、
 			// 還多出一層下劃線）。
 			let Refd = it.element
@@ -369,11 +370,11 @@
 				// HTML 靶這一支只造一條可點的鏈接，**不要掛 id**：
 				// 錨點在詞條那一頭，引用這一頭再掛同名 id 就是全篇重複 id，
 				// 瀏覽器認文檔順序裏第一個，點 @概念 就跳到正文裏第一處引用去了。
-				if Target == Html {
+				if Target == Targets.Html {
 					// link 先生成再插值：內層調用緊貼內容變量時，
 					// HTML 導出會把內層調用整段當字面文字輸出。
 					let Inner = link(it.target)[#str(it.target)]
-					html.elem("span", attrs: (class: TermRefClass))[#Inner]
+					html.elem("span", attrs: (class: Html.TermRefClass))[#Inner]
 				} else {
 					// 下劃線已按用戶要求移除：顏色由下方 show link 統一上，
 					// 概念標籤那一支不包 U（與 HTML 靶一致）。
@@ -381,7 +382,7 @@
 				}
 			} else {
 				box[
-					#underline(stroke: ColorRefUnderline)[#it]
+					#underline(stroke: Cfg.ColorRefUnderline)[#it]
 				]
 			}
 		}
@@ -404,7 +405,7 @@
 			show: show-cn-fakebold
 			show: show-cn-fakeitalic
 			show text.where(weight: "regular"): it => regex-fakebold(
-				//reg-exp: CjkChars,
+				//reg-exp: Cfg.CjkChars,
 				stroke: Cfg.CjkStroke_Regular,
 				weight: "regular",
 				it,
@@ -423,7 +424,7 @@
 
 		set text(
 			size: Cfg.TextSize,
-			//stroke: 0.02em + ColorFore,
+			//stroke: 0.02em + Cfg.ColorFore,
 			Cfg.ColorFore,
 			//font: "Consolas",
 			//stroke: BaseStroke
@@ -455,7 +456,7 @@
 				// HTML 導出不翻譯 block 的 fill/stroke，故輸出帶 class 的 div 包住 pre。
 				// 底色、邊框、內距、無圓角全由 CSS 提供（見頂部「HTML 靶樣式」註釋）；
 				// 不寫行內 style，避免同一件事有兩份值。
-				html.elem("div", attrs: (class: CodeBlockClass))[
+				html.elem("div", attrs: (class: Html.CodeBlockClass))[
 					#box(width: 100%)[#it]
 				]
 			} else {
@@ -494,7 +495,7 @@
 			} else {
 				box(
 					fill: Cfg.ColorInlineCodeBack,
-					//stroke: StrokeCodeBorder + ColorCodeBorder,
+					//stroke: Cfg.StrokeCodeBorder + Cfg.ColorCodeBorder,
 					inset: (x: Cfg.RawInset),
 					outset: (y: Cfg.RawInset),
 				)[#set text(fill: Cfg.ColorFore); #it]
@@ -503,25 +504,25 @@
 		// 引用塊：與多行代碼塊同底色，左側粗線、其餘三邊細框。
 		// HTML 導出不翻譯 block 的 fill/stroke，分靶處理。
 		show quote.where(block: true): it => {
-			if Target == Html {
+			if Target == Targets.Html {
 				// 用 blockquote 保住語義（Typst 內建 HTML 規則本來也導 blockquote，
 				// 本規則接管只是為了加 class，故沿用同一標籤）。
 				// 樣式在 CSS 裏（Article.css 與 site.css 的 .tswg-scrptm-quote），與 PDF 靶用同一組值。
-				html.elem("blockquote", attrs: (class: QuoteClass))[#it.body]
+				html.elem("blockquote", attrs: (class: Html.QuoteClass))[#it.body]
 			} else {
 				// 引用塊不參與全局首行縮進，保持改造前一貫頂格。
 				// 不歸零的話，多段引用會縮、單段引用不縮（block 內單段的 all 怪癖），行爲還不一致。
 				set par(first-line-indent: 0pt)
 				block(
 					width: 100%,
-					fill: ColorQuoteBack,
+					fill: Cfg.ColorQuoteBack,
 					stroke: (
-						left: 3pt + ColorQuoteLeftBorder,
-						//rest: StrokeCodeBorder + ColorQuoteBorder,
+						left: 3pt + Cfg.ColorQuoteLeftBorder,
+						//rest: Cfg.StrokeCodeBorder + Cfg.ColorQuoteBorder,
 					),
 					inset: (left: 1em, rest: 0.75em),
-					above: SpacingQuote,
-					below: SpacingQuote,
+					above: Cfg.SpacingQuote,
+					below: Cfg.SpacingQuote,
 					//radius: 2pt,
 					breakable: true,
 					it.body,
@@ -559,13 +560,13 @@
 
 		let HeadingNumbering(..nums) = {
 			if Target == Targets.Html {
-				let Num = html.elem("span", attrs: (class: HeadingNumClass))[#NumOnly(..nums)]
+				let Num = html.elem("span", attrs: (class: Html.HeadingNumClass))[#NumOnly(..nums)]
 				// 開頭那個空格必須寫成 ~（不換行空格）：
 				// 內容塊首尾的**普通空格**會被 HTML 導出削掉，
 				// 於是「編號 | 標題」在 HTML 靶只剩 | 後面那個空格，
 				// 編號與 | 緊貼在一起。~ 是真字符，不會被削。
 				// PDF 靶那一支不動，仍用普通空格。
-				let Bar = html.elem("span", attrs: (class: HeadingBarClass))[~|]
+				let Bar = html.elem("span", attrs: (class: Html.HeadingBarClass))[~|]
 				Num + Bar
 			} else {
 				(
@@ -579,10 +580,10 @@
 			}
 		}
 		set heading(numbering: HeadingNumbering)
-		// 有序列表編號同染 ColorListNum。走 numbering 函數保持默認布局；
+		// 有序列表編號同染 Cfg.ColorListNum。走 numbering 函數保持默認布局；
 		// 深層編號統一爲阿拉伯數字（覆蓋默認的第二層 a. 樣式）。
 		// HTML 靶由 CSS 的 li::marker 上色。
-		set enum(numbering: (..nums) => text(fill: ColorListNum)[#numbering("1.", ..nums)])
+		set enum(numbering: (..nums) => text(fill: Cfg.ColorListNum)[#numbering("1.", ..nums)])
 		
 				//trial
 		show list: set block(above: 1em, below: 1em)
@@ -591,7 +592,7 @@
 		// Typst 列表項內建是懸掛縮進：續行鎖在正文列，
 		// 實測 indent／show 規則塞 h／負 par hanging-indent 三路都出不去，
 		// 「首行縮進、換行頂格」只能重造。
-		// PDF 靶由上方 ListRender/EnumRender 遞歸接管（層級縮進 D×ListIndent、
+		// PDF 靶由上方 ListRender/EnumRender 遞歸接管（層級縮進 D×Cfg.ListIndent、
 		// 標記 •‣– 按深度循環、enum 編號路徑顯式攜帶）；
 		// HTML 靶保持原生 li（層級、標記、編號全原生），
 		// 首行縮進由 Article.css 的 li text-indent 補。

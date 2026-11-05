@@ -1,6 +1,7 @@
 #import "Enum/Cfg.typ" as Cfg
 #import "tsinswreng-auto-heading.typ": *
 #import "Enum/Targets.typ" as Targets
+#import "Target.typ": *
 // ── 概念鏈的概念登記表 ──
 // 概念鏈文章的詞條數據由收集側（MkTerm／MkTerms）產出，
 // 渲染側 RenderTerms 渲染詞表時把全量概念名一次性登記進來。
@@ -104,7 +105,7 @@
 	// ⚠ 拿 name 當標題是能編譯通過但引用全斷的寫法（載體沒進排版，
 	// 標籤無處附着）——所以可排版之名只此一份 title，name 只做數據用途。
 	let Title = if IsCarrier {
-		if Target == TargetHtml {
+		if Target == Targets.Html {
 			[#Name #html.elem("span", attrs: (style: "font-size:0"))[#head]]
 		} else {
 			[#Name #set text(size: 0pt); #head]
@@ -178,15 +179,15 @@
 	let cont = H[#term.head][
 		#term.body
 	]
-	if Target == TargetHtml {
-		html.elem("div", attrs: (class: TermClass))[#cont]
+	if Target == Targets.Html {
+		html.elem("div", attrs: (class: Html.TermClass))[#cont]
 	} else {
 		block(
 			width: 100%,
 			inset: (left: 1em, rest: 0.2em),
 			above: 1.1em,
 			below: 1.1em,
-			stroke: (left: 3pt + ColorQuoteLeftBorder),
+			stroke: (left: 3pt + Cfg.ColorQuoteLeftBorder),
 		)[#cont]
 	}
 }
