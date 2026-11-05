@@ -416,7 +416,7 @@
 		// 普通文本因此落到各條兜底規則：
 		// 塊級代碼（含無 lang 者）跟正文同白，
 		// 行內代碼白字加框（chip）。
-		set raw(theme: "./_Common/DarkModern.tmTheme")
+		set raw(theme: "DarkModern.tmTheme")
 
 		show raw: set text(
 			font: ("Consolas", "Noto Serif SC"),
