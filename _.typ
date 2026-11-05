@@ -1,6 +1,7 @@
 #import "Enum/Cfg.typ" as Cfg
 #import "tsinswreng-auto-heading.typ": *
-#import "Enum/Target.typ" as Target
+#import "Enum/Targets.typ" as Targets
+#import "Target.typ": *
 #import "concept-chain.typ": *
 
 #import "@preview/cuti:0.4.0": regex-fakebold, show-cn-fakebold, show-cn-fakeitalic
@@ -185,7 +186,7 @@
 	date: auto,
 	body,
 ) = {
-	if Target.IsBundle {
+	if Targets.IsBundle {
 		document(
 			path,
 			format: format,
@@ -211,7 +212,7 @@
 }
 
 #let _Show(d) = {
-	let PageHeight = if Target == Target.Html {
+	let PageHeight = if Target == Targets.Html {
 		auto
 	} else {
 		//841.89pt
@@ -265,7 +266,7 @@
 	// 線寬 2.5pt（細線在黑底不可見的教訓）。
 	// HTML 靶：底線寬度爲 0，無對應裝飾；前後距由 CSS 的 h2 margin 對齊。
 	show heading.where(level: 1): it => context {
-		if Target == Target.Html {
+		if Target == Targets.Html {
 			it
 		} else {
 			let nums = counter(heading).at(it.location())
@@ -330,7 +331,7 @@
 				size: Cfg.FigureCaptionTextSize,
 				Cfg.FigureCaptionTextColor,
 			)
-			if Target == Target.Html {
+			if Target == Targets.Html {
 				// 表格的 figcaption 掛 class：
 				// position: top 使 HTML 導出的 DOM 順序天然是 figcaption 在 table 前，
 				// 無需 CSS 重排；class 只供 Article.css 把間距挪到 caption 與表之間。
@@ -450,7 +451,7 @@
 			//fill: rgb("00ffff")
 		)
 		show raw.where(block: true): it => {
-			if Target == Target.Html {
+			if Target == Targets.Html {
 				// HTML 導出不翻譯 block 的 fill/stroke，故輸出帶 class 的 div 包住 pre。
 				// 底色、邊框、內距、無圓角全由 CSS 提供（見頂部「HTML 靶樣式」註釋）；
 				// 不寫行內 style，避免同一件事有兩份值。
@@ -488,7 +489,7 @@
 		// HTML 靶不翻譯 box 的 fill/stroke，
 		// 樣式由 CSS 的 code 規則提供（源檔見頂部「HTML 靶樣式」註釋）。
 		show raw.where(block: false): it => {
-			if Target == Target.Html {
+			if Target == Targets.Html {
 				it
 			} else {
 				box(
@@ -557,7 +558,7 @@
 		)
 
 		let HeadingNumbering(..nums) = {
-			if Target == Target.Html {
+			if Target == Targets.Html {
 				let Num = html.elem("span", attrs: (class: HeadingNumClass))[#NumOnly(..nums)]
 				// 開頭那個空格必須寫成 ~（不換行空格）：
 				// 內容塊首尾的**普通空格**會被 HTML 導出削掉，
@@ -594,8 +595,8 @@
 		// 標記 •‣– 按深度循環、enum 編號路徑顯式攜帶）；
 		// HTML 靶保持原生 li（層級、標記、編號全原生），
 		// 首行縮進由 Article.css 的 li text-indent 補。
-		show list: it => if Target == Target.Html { it } else { ListRender(it, 1) }
-		show enum: it => if Target == Target.Html { it } else { EnumRender(it, 1) }
+		show list: it => if Target == Targets.Html { it } else { ListRender(it, 1) }
+		show enum: it => if Target == Targets.Html { it } else { EnumRender(it, 1) }
 		if false{//debug only
 			show par: it => block(
 			stroke: (left: 2pt + red),
@@ -610,7 +611,7 @@
 		
 	}
 
-	if Target == Target.Html {
+	if Target == Targets.Html {
 		HtmlDocument(Styled)
 	} else {
 		Styled

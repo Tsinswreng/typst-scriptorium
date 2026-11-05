@@ -4,4 +4,3 @@
 
 #let Pdf = "Pdf"
 #let Html = "Html"
-#let Target = sys.inputs.at("Target", default: Pdf)
