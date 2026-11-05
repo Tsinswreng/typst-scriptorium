@@ -1,6 +1,6 @@
-#import "Cfg.typ" as Cfg
+#import "Enum/Cfg.typ" as Cfg
 #import "tsinswreng-auto-heading.typ": *
-#import "Target.typ" as Target
+#import "Enum/Target.typ" as Target
 #import "concept-chain.typ": *
 
 #import "@preview/cuti:0.4.0": regex-fakebold, show-cn-fakebold, show-cn-fakeitalic
@@ -19,7 +19,7 @@
 // PDF 靶：顯式造一個 first-line-indent: 0pt 的段落，只作用這一段。
 // HTML 靶：導出 <p class="tswg-scrptm-no-indent">，由 Article.css 的 text-indent: 0 壓回。
 // 只支援單一段落；內容裏再有塊級元素（列表等）請另行包裝。
-#let NoIndent(C) = if Target == TargetHtml {
+#let NoIndent(C) = if Target == Html {
 	html.elem("p", attrs: (class: NoIndentClass))[#C]
 } else {
 	par(first-line-indent: 0pt, C)
@@ -151,7 +151,7 @@
 #let FnImgGen(BasePath, HtmlBase: "assets/") = {
 	let affix = ".gen.png"
 	return Name => {
-		if Target == TargetHtml {
+		if Target == Html {
 			html.elem("img", attrs: (
 				class: HtmlAssetMarkerPrefix + HtmlBase + Name + affix,
 				alt: Name,
@@ -164,7 +164,7 @@
 
 // 普通項目圖片。Base 是 PDF 模式相對於本公共文件的路徑，HTML 只保留 Path marker。
 #let ImgPath(Path, Base: ".", alt: none) = {
-	if Target == TargetHtml {
+	if Target == Html {
 		html.elem("img", attrs: (
 			class: HtmlAssetMarkerPrefix + Path,
 			alt: if alt == none { Path } else { alt },
@@ -211,7 +211,7 @@
 }
 
 #let _Show(d) = {
-	let PageHeight = if Target == Target.TargetHtml {
+	let PageHeight = if Target == Target.Html {
 		auto
 	} else {
 		//841.89pt
@@ -265,7 +265,7 @@
 	// 線寬 2.5pt（細線在黑底不可見的教訓）。
 	// HTML 靶：底線寬度爲 0，無對應裝飾；前後距由 CSS 的 h2 margin 對齊。
 	show heading.where(level: 1): it => context {
-		if Target == Target.TargetHtml {
+		if Target == Target.Html {
 			it
 		} else {
 			let nums = counter(heading).at(it.location())
@@ -330,7 +330,7 @@
 				size: Cfg.FigureCaptionTextSize,
 				Cfg.FigureCaptionTextColor,
 			)
-			if Target == Target.TargetHtml {
+			if Target == Target.Html {
 				// 表格的 figcaption 掛 class：
 				// position: top 使 HTML 導出的 DOM 順序天然是 figcaption 在 table 前，
 				// 無需 CSS 重排；class 只供 Article.css 把間距挪到 caption 與表之間。
@@ -345,7 +345,7 @@
 		}
 		show ref: it => context {
 			// 注意變量名：被引用的那個元素**不能**叫 Target——
-			// 那是全局的靶別常量，一遮蔽，下面 `Target == TargetHtml` 就恆假，
+			// 那是全局的靶別常量，一遮蔽，下面 `Target == Html` 就恆假，
 			// HTML 靶會誤走 PDF 那一支（曾經踩過：HTML 裏少了 class、
 			// 還多出一層下劃線）。
 			let Refd = it.element
@@ -368,7 +368,7 @@
 				// HTML 靶這一支只造一條可點的鏈接，**不要掛 id**：
 				// 錨點在詞條那一頭，引用這一頭再掛同名 id 就是全篇重複 id，
 				// 瀏覽器認文檔順序裏第一個，點 @概念 就跳到正文裏第一處引用去了。
-				if Target == TargetHtml {
+				if Target == Html {
 					// link 先生成再插值：內層調用緊貼內容變量時，
 					// HTML 導出會把內層調用整段當字面文字輸出。
 					let Inner = link(it.target)[#str(it.target)]
@@ -450,7 +450,7 @@
 			//fill: rgb("00ffff")
 		)
 		show raw.where(block: true): it => {
-			if Target == Target.TargetHtml {
+			if Target == Target.Html {
 				// HTML 導出不翻譯 block 的 fill/stroke，故輸出帶 class 的 div 包住 pre。
 				// 底色、邊框、內距、無圓角全由 CSS 提供（見頂部「HTML 靶樣式」註釋）；
 				// 不寫行內 style，避免同一件事有兩份值。
@@ -488,7 +488,7 @@
 		// HTML 靶不翻譯 box 的 fill/stroke，
 		// 樣式由 CSS 的 code 規則提供（源檔見頂部「HTML 靶樣式」註釋）。
 		show raw.where(block: false): it => {
-			if Target == Target.TargetHtml {
+			if Target == Target.Html {
 				it
 			} else {
 				box(
@@ -502,7 +502,7 @@
 		// 引用塊：與多行代碼塊同底色，左側粗線、其餘三邊細框。
 		// HTML 導出不翻譯 block 的 fill/stroke，分靶處理。
 		show quote.where(block: true): it => {
-			if Target == TargetHtml {
+			if Target == Html {
 				// 用 blockquote 保住語義（Typst 內建 HTML 規則本來也導 blockquote，
 				// 本規則接管只是為了加 class，故沿用同一標籤）。
 				// 樣式在 CSS 裏（Article.css 與 site.css 的 .tswg-scrptm-quote），與 PDF 靶用同一組值。
@@ -557,7 +557,7 @@
 		)
 
 		let HeadingNumbering(..nums) = {
-			if Target == Target.TargetHtml {
+			if Target == Target.Html {
 				let Num = html.elem("span", attrs: (class: HeadingNumClass))[#NumOnly(..nums)]
 				// 開頭那個空格必須寫成 ~（不換行空格）：
 				// 內容塊首尾的**普通空格**會被 HTML 導出削掉，
@@ -594,8 +594,8 @@
 		// 標記 •‣– 按深度循環、enum 編號路徑顯式攜帶）；
 		// HTML 靶保持原生 li（層級、標記、編號全原生），
 		// 首行縮進由 Article.css 的 li text-indent 補。
-		show list: it => if Target == Target.TargetHtml { it } else { ListRender(it, 1) }
-		show enum: it => if Target == Target.TargetHtml { it } else { EnumRender(it, 1) }
+		show list: it => if Target == Target.Html { it } else { ListRender(it, 1) }
+		show enum: it => if Target == Target.Html { it } else { EnumRender(it, 1) }
 		if false{//debug only
 			show par: it => block(
 			stroke: (left: 2pt + red),
@@ -610,7 +610,7 @@
 		
 	}
 
-	if Target == Target.TargetHtml {
+	if Target == Target.Html {
 		HtmlDocument(Styled)
 	} else {
 		Styled

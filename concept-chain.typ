@@ -1,6 +1,6 @@
-#import "Cfg.typ" as Cfg
+#import "Enum/Cfg.typ" as Cfg
 #import "tsinswreng-auto-heading.typ": *
-#import "Target.typ" as Target
+#import "Enum/Target.typ" as Target
 // ── 概念鏈的概念登記表 ──
 // 概念鏈文章的詞條數據由收集側（MkTerm／MkTerms）產出，
 // 渲染側 RenderTerms 渲染詞表時把全量概念名一次性登記進來。
