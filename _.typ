@@ -1,6 +1,6 @@
-#import "Cfg.typ": *
+#import "Cfg.typ" as Cfg
 #import "tsinswreng-auto-heading.typ": *
-#import "Target.typ": *
+#import "Target.typ" as Target
 #import "concept-chain.typ": *
 
 #import "@preview/cuti:0.4.0": regex-fakebold, show-cn-fakebold, show-cn-fakeitalic
@@ -11,7 +11,7 @@
 // 若保留 h()，它會與全局縮進相加成 4em（實測：P 行 82.5pt、普通段 49.5pt、頁邊 16.5pt）。
 // 保留本函數只是為了讓舊文檔不必改寫。
 #let P(C) = {
-	v(CustomPSpacing)
+	v(Cfg.CustomPSpacing)
 	C
 }
 
@@ -43,8 +43,8 @@
 		.map(Pair => {
 			let Item = Pair.at(1)
 			block(above: 1em, below: 1em)[
-				#h(ListIndent * Depth)
-				#text(fill: ColorListNum)[#ListMarkers.at(calc.rem(Depth - 1, ListMarkers.len()))]
+				#h(Cfg.ListIndent * Depth)
+				#text(fill: Cfg.ColorListNum)[#ListMarkers.at(calc.rem(Depth - 1, ListMarkers.len()))]
 				#h(0.5em)
 				#{
 					show list: it => ListRender(it, Depth + 1)
@@ -185,7 +185,7 @@
 	date: auto,
 	body,
 ) = {
-	if IsBundle {
+	if Target.IsBundle {
 		document(
 			path,
 			format: format,
@@ -211,7 +211,7 @@
 }
 
 #let _Show(d) = {
-	let PageHeight = if Target == TargetHtml {
+	let PageHeight = if Target == Target.TargetHtml {
 		auto
 	} else {
 		//841.89pt
@@ -223,7 +223,7 @@
 	// 底邊距太薄（如原來的 1em）會讓頁碼貼住紙邊。
 	set page(
 		margin: (rest: 1em, bottom: 2.4em),
-		fill: ColorBack,
+		fill: Cfg.ColorBack,
 		height: PageHeight,
 		//width: 14.8cm, // A5短邊 改寬度會出問題, 在typstᶤ繪ʹ圖表中 如鍵位圖等。解決此問題前 勿改頁寬。
 		// 頁碼。默認 number-align 是 center + bottom，即底部居中。
@@ -236,7 +236,7 @@
 	
 
 	// HTML 靶：CSS 的 strong 規則同色（見頂部「HTML 靶樣式」註釋）。
-	show strong: set text(ColorStrong)
+	show strong: set text(Cfg.ColorStrong)
 	//show heading: set text(rgb("00ffff"))
 	// 一級標題居中；二級起保持左對齊。
 	// HTML 靶：CSS 的 h2 規則同樣居中（本站 h1 留給題名、頁面標題在 hero 裏）。
@@ -245,7 +245,7 @@
 	// 一級 PDF 靶走下方自訂 block（引用同一對變量）。
 	// typst 0.13 起 heading 的 above/below 參數已移除，
 	// 須 show-set 到 block 上（官方遷移寫法）。
-	show heading: set block(above: SpacingHeadingAbove, below: SpacingHeadingBelow)
+	show heading: set block(above: Cfg.SpacingHeadingAbove, below: Cfg.SpacingHeadingBelow)
 	// 正文行距。行距是段落級屬性，只能走全局 set par（無法進 P()）；
 	// 「不引入全局 set par」的舊決策只針對首行縮排與段距，不涵蓋 leading。
 	// 首行縮進：常規段落全局縮進，寫文章時不必再套 P()（2026-11-05 起）。
@@ -254,9 +254,9 @@
 	// 實測不受影響：標題、列表、代碼塊、表格單元格、圖表 caption、Todo/Wip 框；
 	// 塊引用在 quote 的 show 規則裏另行歸零，保持一貫頂格。
 	set par(
-		leading: SpacingLeading,
-		spacing: ParSpacing,
-		first-line-indent: (amount: CustomPIndent, all: true),
+		leading: Cfg.SpacingLeading,
+		spacing: Cfg.ParSpacing,
+		first-line-indent: (amount: Cfg.CustomPIndent, all: true),
 )
 	// 一級標題：下方粗短線，後距加大。
 	// 實作用 box 底邊框：編號+題文放進 shrink-wrap 的 box，
@@ -265,17 +265,17 @@
 	// 線寬 2.5pt（細線在黑底不可見的教訓）。
 	// HTML 靶：底線寬度爲 0，無對應裝飾；前後距由 CSS 的 h2 margin 對齊。
 	show heading.where(level: 1): it => context {
-		if Target == TargetHtml {
+		if Target == Target.TargetHtml {
 			it
 		} else {
 			let nums = counter(heading).at(it.location())
-			block(sticky: true, width: 100%, above: SpacingHeadingAbove, below: SpacingHeadingBelow)[
+			block(sticky: true, width: 100%, above: Cfg.SpacingHeadingAbove, below: Cfg.SpacingHeadingBelow)[
 				#align(center)[
 					#box(
 						// 0.35em：避開 1.2em 大號「|」分隔符的下探部分，
 						// 太淺會與其重疊成亮斑。
 						inset: (bottom: 0.35em),
-						stroke: (bottom: 0pt /* 2.5pt */ + ColorCodeBorder),
+						stroke: (bottom: 0pt /* 2.5pt */ + Cfg.ColorCodeBorder),
 					)[
 						// outline() 的合成目錄標題 level 亦爲 1、numbering 顯式爲 none，
 						// 不守衛直接調 it.numbering 會報 expected function, found none。
@@ -293,13 +293,13 @@
 	show title: it => {
 		// 題名是 flow 首元素，block 的 above 屬 weak 間距、在 flow 開頭被丟棄，
 		// 故上方距用 weak: false 的 v 硬推（title 恆居文檔開頭，無中段疊加之虞）。
-		v(SpacingTitleAbove, weak: false)
-		block(below: SpacingTitleBelow)[
+		v(Cfg.SpacingTitleAbove, weak: false)
+		block(below: Cfg.SpacingTitleBelow)[
 			#box(
 				// 0.35em：避開 1.2em 大號「|」分隔符的下探部分，
 				// 太淺會與其重疊成亮斑。
 				inset: (bottom: 0.35em),
-				stroke: (bottom: ColorVertBarSize + ColorTitleUnderbar),
+				stroke: (bottom: Cfg.ColorVertBarSize + Cfg.ColorTitleUnderbar),
 			)[#it]
 		]
 	}
@@ -327,10 +327,10 @@
 
 			// HTML 靶：CSS 的 figcaption 規則同字號同色。
 			set text(
-				size: FigureCaptionTextSize,
-				FigureCaptionTextColor,
+				size: Cfg.FigureCaptionTextSize,
+				Cfg.FigureCaptionTextColor,
 			)
-			if Target == TargetHtml {
+			if Target == Target.TargetHtml {
 				// 表格的 figcaption 掛 class：
 				// position: top 使 HTML 導出的 DOM 順序天然是 figcaption 在 table 前，
 				// 無需 CSS 重排；class 只供 Article.css 把間距挪到 caption 與表之間。
@@ -354,8 +354,8 @@
 				let Label = FigureKindText(Refd.kind) + str(Number)
 				box[
 					#link(Refd.location())[
-						#set text(ColorRefText)
-						#underline(stroke: ColorRefUnderline + 0.1em)[
+						#set text(Cfg.ColorRefText)
+						#underline(stroke: Cfg.ColorRefUnderline + 0.1em)[
 							#Label
 						]
 					]
@@ -390,7 +390,7 @@
 		// 注意：show 規則原樣返回元素會落回更外層的同類規則，
 		// 故在文檔級另寫 show link 壓不掉這條——改樣式只能改這裏（實測）。
 		show link: it => context {
-			set text(ColorLinkText)
+			set text(Cfg.ColorLinkText)
 			if type(it.dest) == label and str(it.dest) in ConceptNames.final() {
 				it
 			} else {
@@ -399,19 +399,19 @@
 		}
 		show title: set align(center)
 		let ShowCjkTypography(body) = {
-			show regex(CjkChars): set text(font: "Noto Serif SC") // Times New Roman
+			show regex(Cfg.CjkChars): set text(font: "Noto Serif SC") // Times New Roman
 			show: show-cn-fakebold
 			show: show-cn-fakeitalic
 			show text.where(weight: "regular"): it => regex-fakebold(
 				//reg-exp: CjkChars,
-				stroke: CjkStroke_Regular,
+				stroke: Cfg.CjkStroke_Regular,
 				weight: "regular",
 				it,
 			)
 
 			show text.where(weight: "bold"): it => regex-fakebold(
-				reg-exp: CjkChars,
-				stroke: CjkStroke_Bold,
+				reg-exp: Cfg.CjkChars,
+				stroke: Cfg.CjkStroke_Bold,
 				weight: "bold",
 				it,
 			)
@@ -421,9 +421,9 @@
 		show: ShowCjkTypography
 
 		set text(
-			size: TextSize,
+			size: Cfg.TextSize,
 			//stroke: 0.02em + ColorFore,
-			ColorFore,
+			Cfg.ColorFore,
 			//font: "Consolas",
 			//stroke: BaseStroke
 		)
@@ -446,11 +446,11 @@
 			// 要真的除回去得寫 1.25em（1 / 0.8）；但在改 PDF 靶之前先維持現狀，
 			// 因為 HTML 靶的 Article.css 是按實測值 0.8em（--tswg-scrptm-code-em）對齊的，
 			// 兩邊要同時改。語言標籤的 0.8em 也錨在這個尺寸上（實測 10.56pt）。
-			size: RawTextSize,
+			size: Cfg.RawTextSize,
 			//fill: rgb("00ffff")
 		)
 		show raw.where(block: true): it => {
-			if Target == TargetHtml {
+			if Target == Target.TargetHtml {
 				// HTML 導出不翻譯 block 的 fill/stroke，故輸出帶 class 的 div 包住 pre。
 				// 底色、邊框、內距、無圓角全由 CSS 提供（見頂部「HTML 靶樣式」註釋）；
 				// 不寫行內 style，避免同一件事有兩份值。
@@ -460,8 +460,8 @@
 			} else {
 				block(
 					width: 100%,
-					fill: ColorCodeBack,
-					stroke: StrokeCodeBorder + ColorCodeBorder,
+					fill: Cfg.ColorCodeBack,
+					stroke: Cfg.StrokeCodeBorder + Cfg.ColorCodeBorder,
 					inset: 0.75em,
 					//radius: 2pt,
 				)[
@@ -472,8 +472,8 @@
 						#block(width: 100%, below: 0.4em)[
 							#align(right)[
 								#text(
-									size: CodeLangLabelTextSize,
-									fill: ColorCodeLangLabel,
+									size: Cfg.CodeLangLabelTextSize,
+									fill: Cfg.ColorCodeLangLabel,
 								)[#it.lang]
 							]
 						]
@@ -488,15 +488,15 @@
 		// HTML 靶不翻譯 box 的 fill/stroke，
 		// 樣式由 CSS 的 code 規則提供（源檔見頂部「HTML 靶樣式」註釋）。
 		show raw.where(block: false): it => {
-			if Target == TargetHtml {
+			if Target == Target.TargetHtml {
 				it
 			} else {
 				box(
-					fill: ColorInlineCodeBack,
+					fill: Cfg.ColorInlineCodeBack,
 					//stroke: StrokeCodeBorder + ColorCodeBorder,
-					inset: (x: RawInset),
-					outset: (y: RawInset),
-				)[#set text(fill: ColorFore); #it]
+					inset: (x: Cfg.RawInset),
+					outset: (y: Cfg.RawInset),
+				)[#set text(fill: Cfg.ColorFore); #it]
 			}
 		}
 		// 引用塊：與多行代碼塊同底色，左側粗線、其餘三邊細框。
@@ -532,7 +532,7 @@
 		// 被 figure 包住時不跨頁的瓶頸在 figure（不可斷塊），
 		// 已由上方 show figure.where(kind: table): set block(breakable: true) 解決。
 		set table(
-			stroke: ColorFore,
+			stroke: Cfg.ColorFore,
 			// 每個單元格的文字上下居中（用戶 2026-10-29 要求）。
 			// horizon 只指定垂直分量，水平對齊沿用默認；
 			// 個別表若在調用處傳 align: 會整體覆蓋此值（本倉庫現無此用法）。
@@ -557,7 +557,7 @@
 		)
 
 		let HeadingNumbering(..nums) = {
-			if Target == TargetHtml {
+			if Target == Target.TargetHtml {
 				let Num = html.elem("span", attrs: (class: HeadingNumClass))[#NumOnly(..nums)]
 				// 開頭那個空格必須寫成 ~（不換行空格）：
 				// 內容塊首尾的**普通空格**會被 HTML 導出削掉，
@@ -568,11 +568,11 @@
 				Num + Bar
 			} else {
 				(
-					text(fill: ColorHeadingNum)[#NumOnly(..nums)]
+					text(fill: Cfg.ColorHeadingNum)[#NumOnly(..nums)]
 						+ text(
-							fill: ColorVertBar,
+							fill: Cfg.ColorVertBar,
 							size: 1.2em,
-							stroke: 0.02em + ColorVertBar,
+							stroke: 0.02em + Cfg.ColorVertBar,
 						)[ |]
 				)
 			}
@@ -594,8 +594,8 @@
 		// 標記 •‣– 按深度循環、enum 編號路徑顯式攜帶）；
 		// HTML 靶保持原生 li（層級、標記、編號全原生），
 		// 首行縮進由 Article.css 的 li text-indent 補。
-		show list: it => if Target == TargetHtml { it } else { ListRender(it, 1) }
-		show enum: it => if Target == TargetHtml { it } else { EnumRender(it, 1) }
+		show list: it => if Target == Target.TargetHtml { it } else { ListRender(it, 1) }
+		show enum: it => if Target == Target.TargetHtml { it } else { EnumRender(it, 1) }
 		if false{//debug only
 			show par: it => block(
 			stroke: (left: 2pt + red),
@@ -610,7 +610,7 @@
 		
 	}
 
-	if Target == TargetHtml {
+	if Target == Target.TargetHtml {
 		HtmlDocument(Styled)
 	} else {
 		Styled
