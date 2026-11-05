@@ -93,10 +93,17 @@ p {
 	margin: calc(1.5 * var(--mvn-em)) 0; /* ParSpacing 2.5em 減一條行距（1em） */
 }
 
-/* P() 的首行縮排在 Typst 是 h(2em)，HTML 導出丟掉 h，由 text-indent 補回。
-   只給 article 的直接子段落：列表項內的多段在 PDF 也不縮排。 */
+/* 首行縮進：PDF 靶由 _Show 的 set par(first-line-indent) 全局提供，
+   HTML 導出不翻譯該屬性，故由 text-indent 補回（兩靶同為 2em）。
+   只給 article 的直接子段落：列表項、表格單元格、引用塊在 PDF 也不縮排。 */
 .mvn-article > p {
 	text-indent: calc(2 * var(--mvn-em));
+}
+
+/* NoIndent()：退回「不縮進」的舊寫法。HTML 靶輸出 <p class="mvn-no-indent">，
+   這條把它壓回 0；PDF 靶由函數直接造 first-line-indent: 0pt 的段落。 */
+.mvn-article > p.mvn-no-indent {
+	text-indent: 0;
 }
 
 a {

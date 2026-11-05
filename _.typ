@@ -6,10 +6,23 @@
 #import "@preview/cuti:0.4.0": regex-fakebold, show-cn-fakebold, show-cn-fakeitalic
 #import "@preview/numbly:0.1.0": numbly
 
+// 舊寫法段落：只負責切段（v），不再加 h(CustomPIndent)。
+// 2026-11-05 起首行縮進由 _Show 的 set par(first-line-indent) 全局承擔；
+// 若保留 h()，它會與全局縮進相加成 4em（實測：P 行 82.5pt、普通段 49.5pt、頁邊 16.5pt）。
+// 保留本函數只是為了讓舊文檔不必改寫。
 #let P(C) = {
 	v(CustomPSpacing)
-	h(CustomPIndent)
 	C
+}
+
+// 不縮進的段落。用法與「改造前直接寫」相同：首行頂格。
+// PDF 靶：顯式造一個 first-line-indent: 0pt 的段落，只作用這一段。
+// HTML 靶：導出 <p class="mvn-no-indent">，由 Article.css 的 text-indent: 0 壓回。
+// 只支援單一段落；內容裏再有塊級元素（列表等）請另行包裝。
+#let NoIndent(C) = if Target == TargetHtml {
+	html.elem("p", attrs: (class: "mvn-no-indent"))[#C]
+} else {
+	par(first-line-indent: 0pt, C)
 }
 #let U(C) = {
 	underline(C)
@@ -235,9 +248,15 @@
 	show heading: set block(above: SpacingHeadingAbove, below: SpacingHeadingBelow)
 	// 正文行距。行距是段落級屬性，只能走全局 set par（無法進 P()）；
 	// 「不引入全局 set par」的舊決策只針對首行縮排與段距，不涵蓋 leading。
+	// 首行縮進：常規段落全局縮進，寫文章時不必再套 P()（2026-11-05 起）。
+	// all: true 是關鍵——簡寫 first-line-indent: 2em 等於 all: false，
+	// 「區塊第一段」會被跳過，也就是標題後第一段不縮（舊印象的來源）。
+	// 實測不受影響：標題、列表、代碼塊、表格單元格、圖表 caption、Todo/Wip 框；
+	// 塊引用在 quote 的 show 規則裏另行歸零，保持一貫頂格。
 	set par(
 		leading: SpacingLeading,
-		spacing: ParSpacing
+		spacing: ParSpacing,
+		first-line-indent: (amount: CustomPIndent, all: true),
 )
 	// 一級標題：下方粗短線，後距加大。
 	// 實作用 box 底邊框：編號+題文放進 shrink-wrap 的 box，
@@ -489,6 +508,9 @@
 				// 樣式在 CSS 裏（Article.css 與 site.css 的 .mvn-quote），與 PDF 靶用同一組值。
 				html.elem("blockquote", attrs: (class: "mvn-quote"))[#it.body]
 			} else {
+				// 引用塊不參與全局首行縮進，保持改造前一貫頂格。
+				// 不歸零的話，多段引用會縮、單段引用不縮（block 內單段的 all 怪癖），行爲還不一致。
+				set par(first-line-indent: 0pt)
 				block(
 					width: 100%,
 					fill: ColorQuoteBack,
