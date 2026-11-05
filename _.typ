@@ -17,10 +17,10 @@
 
 // 不縮進的段落。用法與「改造前直接寫」相同：首行頂格。
 // PDF 靶：顯式造一個 first-line-indent: 0pt 的段落，只作用這一段。
-// HTML 靶：導出 <p class="mvn-no-indent">，由 Article.css 的 text-indent: 0 壓回。
+// HTML 靶：導出 <p class="tswg-scrptm-no-indent">，由 Article.css 的 text-indent: 0 壓回。
 // 只支援單一段落；內容裏再有塊級元素（列表等）請另行包裝。
 #let NoIndent(C) = if Target == TargetHtml {
-	html.elem("p", attrs: (class: "mvn-no-indent"))[#C]
+	html.elem("p", attrs: (class: NoIndentClass))[#C]
 } else {
 	par(first-line-indent: 0pt, C)
 }
@@ -145,8 +145,8 @@
 	box(fill: rgb("#555500"))[#Body]
 }
 
-// HTML 不直接寫死相對路徑；先把項目內資產路徑放入 class，交給 Mvn.csx 解析。
-#let HtmlAssetMarkerPrefix = "mvn-img-asset-"
+// HTML 不直接寫死相對路徑；先把項目內資產路徑放入 class，交給 Scriptorium.csx 解析。
+#let HtmlAssetMarkerPrefix = "tswg-scrptm-img-asset-"
 // BasePath 僅供 PDF image(...) 使用；HtmlBase 是項目根目錄下的資產路徑。
 #let FnImgGen(BasePath, HtmlBase: "assets/") = {
 	let affix = ".gen.png"
@@ -203,7 +203,7 @@
 
 //#let BaseStroke = 0.05em
 #let HtmlDocument(body) = [
-	#html.elem("article", attrs: (class: "mvn-article"))[#body]
+	#html.elem("article", attrs: (class: ArticleClass))[#body]
 ]
 
 #let _Outline()={
@@ -335,7 +335,7 @@
 				// position: top 使 HTML 導出的 DOM 順序天然是 figcaption 在 table 前，
 				// 無需 CSS 重排；class 只供 Article.css 把間距挪到 caption 與表之間。
 				if it.kind == table {
-					html.elem("figcaption", attrs: (class: "mvn-table-caption"))[#Caption]
+					html.elem("figcaption", attrs: (class: TableCaptionClass))[#Caption]
 				} else {
 					html.elem("figcaption")[#Caption]
 				}
@@ -372,7 +372,7 @@
 					// link 先生成再插值：內層調用緊貼內容變量時，
 					// HTML 導出會把內層調用整段當字面文字輸出。
 					let Inner = link(it.target)[#str(it.target)]
-					html.elem("span", attrs: (class: "mvn-term-ref"))[#Inner]
+					html.elem("span", attrs: (class: TermRefClass))[#Inner]
 				} else {
 					// 下劃線已按用戶要求移除：顏色由下方 show link 統一上，
 					// 概念標籤那一支不包 U（與 HTML 靶一致）。
@@ -444,7 +444,7 @@
 			// 尺寸上，是空操作。量法：同一串 14 個 M，正文（Consolas 16.5pt）
 			// 寬 127pt，代碼塊內寬 101.5pt，比值 0.8。
 			// 要真的除回去得寫 1.25em（1 / 0.8）；但在改 PDF 靶之前先維持現狀，
-			// 因為 HTML 靶的 Article.css 是按實測值 0.8em（--mvn-code-em）對齊的，
+			// 因為 HTML 靶的 Article.css 是按實測值 0.8em（--tswg-scrptm-code-em）對齊的，
 			// 兩邊要同時改。語言標籤的 0.8em 也錨在這個尺寸上（實測 10.56pt）。
 			size: RawTextSize,
 			//fill: rgb("00ffff")
@@ -454,7 +454,7 @@
 				// HTML 導出不翻譯 block 的 fill/stroke，故輸出帶 class 的 div 包住 pre。
 				// 底色、邊框、內距、無圓角全由 CSS 提供（見頂部「HTML 靶樣式」註釋）；
 				// 不寫行內 style，避免同一件事有兩份值。
-				html.elem("div", attrs: (class: "mvn-code-block"))[
+				html.elem("div", attrs: (class: CodeBlockClass))[
 					#box(width: 100%)[#it]
 				]
 			} else {
@@ -505,8 +505,8 @@
 			if Target == TargetHtml {
 				// 用 blockquote 保住語義（Typst 內建 HTML 規則本來也導 blockquote，
 				// 本規則接管只是為了加 class，故沿用同一標籤）。
-				// 樣式在 CSS 裏（Article.css 與 site.css 的 .mvn-quote），與 PDF 靶用同一組值。
-				html.elem("blockquote", attrs: (class: "mvn-quote"))[#it.body]
+				// 樣式在 CSS 裏（Article.css 與 site.css 的 .tswg-scrptm-quote），與 PDF 靶用同一組值。
+				html.elem("blockquote", attrs: (class: QuoteClass))[#it.body]
 			} else {
 				// 引用塊不參與全局首行縮進，保持改造前一貫頂格。
 				// 不歸零的話，多段引用會縮、單段引用不縮（block 內單段的 all 怪癖），行爲還不一致。
@@ -558,13 +558,13 @@
 
 		let HeadingNumbering(..nums) = {
 			if Target == TargetHtml {
-				let Num = html.elem("span", attrs: (class: "mvn-heading-num"))[#NumOnly(..nums)]
+				let Num = html.elem("span", attrs: (class: HeadingNumClass))[#NumOnly(..nums)]
 				// 開頭那個空格必須寫成 ~（不換行空格）：
 				// 內容塊首尾的**普通空格**會被 HTML 導出削掉，
 				// 於是「編號 | 標題」在 HTML 靶只剩 | 後面那個空格，
 				// 編號與 | 緊貼在一起。~ 是真字符，不會被削。
 				// PDF 靶那一支不動，仍用普通空格。
-				let Bar = html.elem("span", attrs: (class: "mvn-heading-bar"))[~|]
+				let Bar = html.elem("span", attrs: (class: HeadingBarClass))[~|]
 				Num + Bar
 			} else {
 				(

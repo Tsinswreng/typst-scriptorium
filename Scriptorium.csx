@@ -947,7 +947,7 @@ sealed class MvnConfig {
 	// HTML 输出所需的 Typst feature 名称。
 	public string HtmlFeature { get; } = "html";
 	// HTML 图片 marker 的 class 前缀。
-	public string ImageMarkerPrefix { get; } = "mvn-img-asset-";
+	public string ImageMarkerPrefix { get; } = "tswg-scrptm-img-asset-";
 	// 项目图片资产的相对目录名称。
 	public string ImageAssetDirectoryName { get; } = "assets";
 	// 生成图片文件名与源文件名之间的后缀。

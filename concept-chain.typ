@@ -167,11 +167,11 @@
 	Records
 }
 
-// ┊默認單條渲染：H 標題＋左豎線塊（PDF）／mvn-term div（HTML）。┊
+// ┊默認單條渲染：H 標題＋左豎線塊（PDF）／tswg-scrptm-term div（HTML）。┊
 // 兩靶同構：內容塊共用，只有外面的包裹分靶。
 // PDF 靶是左豎線的 block；HTML 靶是帶 class 的 div，
-// class 名對應 Article.css 裏的 .mvn-term（下面的默認值就是它）。
-// 注意 class 只管詞條那一頭：引用那一頭的 class 固定在 show ref 裏（.mvn-term-ref），
+// class 名對應 Article.css 裏的 .tswg-scrptm-term（下面的默認值就是它）。
+// 注意 class 只管詞條那一頭：引用那一頭的 class 固定在 show ref 裏（.tswg-scrptm-term-ref），
 // 換了 class 就得自己把兩邊的 CSS 都備齊。
 #let RenderTerm(term) = {
 	// 兩靶共用同一段內容，故先造好再各自包裹。
@@ -179,7 +179,7 @@
 		#term.body
 	]
 	if Target == TargetHtml {
-		html.elem("div", attrs: (class: "mvn-term"))[#cont]
+		html.elem("div", attrs: (class: TermClass))[#cont]
 	} else {
 		block(
 			width: 100%,
