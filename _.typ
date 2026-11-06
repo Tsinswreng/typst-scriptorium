@@ -5,6 +5,7 @@
 #import "Target.typ": *
 #import "concept-chain.typ": *
 #import "Img.typ" as Img
+#import "AiSesn.typ" as AiSesn
 #import "@preview/cuti:0.4.0": regex-fakebold, show-cn-fakebold, show-cn-fakeitalic
 #import "@preview/numbly:0.1.0": numbly
 #import "@preview/cmarker:0.1.10"

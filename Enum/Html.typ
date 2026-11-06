@@ -19,4 +19,6 @@
 #let HeadingNumClass = HtmlName("heading-num")
 #let HeadingBarClass = HtmlName("heading-bar")
 #let TermClass = HtmlName("term")
+#let AiTimeClass = HtmlName("ai-time")
+#let AiQClass = HtmlName("ai-q")
 #let HtmlAssetMarkerPrefix = HtmlName("img-asset-")
