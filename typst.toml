@@ -1,0 +1,5 @@
+[package]
+name = "tsinswreng-scriptorium"
+version = "0.1.0"
+entrypoint = "_.typ"
+compiler = "0.15.0"
