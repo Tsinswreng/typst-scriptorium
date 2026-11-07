@@ -143,9 +143,10 @@
 	import "Internal.typ": *
 	let PageHeight = if Target == Targets.Html {
 		auto
-	} else {
+	} else { //TODO 多傳入一個 「是否分頁」參數。
 		//841.89pt
-		21cm // A5 長邊, 若A4則 29.7 cm
+		//21cm // A5 長邊, 若A4則 29.7 cm
+		auto
 	}
 
 	// 底邊距要爲頁碼留出空間。

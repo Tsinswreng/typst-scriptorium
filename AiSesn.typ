@@ -81,6 +81,7 @@
 /// - Body (content): 會話內容（通常爲若干個 #T）
 /// -> content
 #let Sesn(Body) = {
+	HReset()
 	v(TurnAbove, weak: true)
 	if Target == Targets.Html {
 		html.elem("hr")
@@ -98,22 +99,27 @@
 /// - Q (content): 用戶提問
 /// - A (content): AI 回答；僅含一個 md 代碼塊時自動以 Markdown 渲染
 /// -> content
-#let Round(Time, Q, A) = {
+#let Round(time, question, answer) = {
 	
-	H[#Time][
+	H[#time][
 #{
 if Target == Targets.Html {
-		html.elem("div", attrs: (class: Html.AiQClass))[#Q]
+		html.elem("div", attrs: (class: Html.AiQClass))[#question]
 	} else {
-		block(
-			width: 100%,
-			inset: QInset,
-			stroke: (left: QBarStroke),
-			above: 0.3em,
-			below: 0.3em,
-		)[#Q]
+		box(
+		)[
+			#block(
+				stroke: Cfg.StrokeCodeBorder + Cfg.ColorCodeBorder,
+				fill: rgb("#0000ff44"),
+				width: 100%,
+				inset: 1em,
+			)[#question]
+		]
+		
 	}
-	Answer(A)
+	//v(1em)
+	//box(width: 100%, height: 1pt, fill: Cfg.ColorStrong)
+	Answer(answer)
 }
 	]
 	
