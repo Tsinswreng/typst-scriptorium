@@ -9,6 +9,11 @@
 // dotnet script Scriptorium.csx list
 // dotnet script Scriptorium.csx build-all
 // dotnet script Scriptorium.csx zhihu _Publish/AltNav/Main.html -o _Publish/AltNav/Main.zhihu.html --images zhihu-images.txt
+// dotnet script Scriptorium.csx compile Doc.typ -o Doc.html [--root .]
+//
+// compile 繞過 manifest 與 _Publish：單一文檔按 -o 擴展名直出。
+// .html 是自包含單文件（Article.css 與圖片全部內嵌；.gen 圖源現場編成 PNG 再內嵌）；
+// .md 由同一份處理過的 HTML 轉出，圖片同樣是 data URI。--root 默認 "."，語義同 typst CLI。
 //
 // _Manifest.typ 有兩個 schema：V1 逐個文件列入口；V2 以目錄為單位，
 // SrcDirs 是源碼樹，GeneratedDirs 是整棵由生成器產生的樹。資產和輸出規則由本腳本固定處理。
@@ -91,6 +96,10 @@ try {
 	} else if (Args[0] == Config.ZhihuCommand) {
 		var Options = ParseZhihuOptions(Args);
 		await RewriteHtmlForZhihu(Options.HtmlPath, Options.OutputPath, Options.ImagesPath, Ct);
+	} else if (Args[0] == Config.CompileCommand) {
+		// compile 不讀 manifest、不碰 _Publish：單一文檔按 -o 擴展名直出單文件 .html 或 .md。
+		var Options = ParseCompileOptions(Args);
+		await CompileSingle(Options, Ct);
 	} else {
 		throw new Exception($"unknown command: {Args[0]}");
 	}
@@ -191,6 +200,253 @@ int LiftCodeBlocksOutOfLists(AngleSharp.Dom.IElement Article) {
 		List.Remove();
 	}
 	return LiftedCodeBlocks;
+}
+
+// ── compile：單一文檔直出，不經 manifest 與 _Publish ──
+
+CompileOptions ParseCompileOptions(IList<string> Arguments) {
+	// 與 zhihu 同款的嚴格位置解析：輸入、-o、輸出按固定順序，之後只允許 --root 一個可選參數。
+	// --root 默認 "."，按調用時的工作目錄解析，語義與 typst CLI 的 --root 一致。
+	if (Arguments.Count is not (4 or 6)) {
+		throw new Exception($"usage: dotnet script Scriptorium.csx {Config.CompileCommand} <Doc{Config.TypstDocumentExtension}> -o <Out{Config.HtmlExtension}|Out{Config.MarkdownExtension}> [{Config.CompileRootOptionName} <Dir>]");
+	}
+	if (Arguments[2] != "-o") {
+		throw new Exception("compile expects \"-o\" between the input document and the output path.");
+	}
+	var RootValue = ".";
+	if (Arguments.Count == 6) {
+		if (Arguments[4] != Config.CompileRootOptionName) {
+			throw new Exception($"compile only accepts {Config.CompileRootOptionName} <Dir> as optional arguments.");
+		}
+		RootValue = Arguments[5];
+	}
+	var InputPath = Path.GetFullPath(Arguments[1]);
+	var OutputPath = Path.GetFullPath(Arguments[3]);
+	var RootPath = Path.GetFullPath(RootValue);
+	if (!File.Exists(InputPath)) {
+		throw new Exception($"compile input document does not exist: {InputPath}");
+	}
+	if (!InputPath.EndsWith(Config.TypstDocumentExtension, StringComparison.OrdinalIgnoreCase)) {
+		throw new Exception($"compile input must be a {Config.TypstDocumentExtension} document: {InputPath}");
+	}
+	if (!Directory.Exists(RootPath)) {
+		throw new Exception($"compile root directory does not exist: {RootPath}");
+	}
+	if (!IsUnder(InputPath, RootPath)) {
+		throw new Exception($"compile input must stay under the root: {InputPath}");
+	}
+	var OutputExtension = Path.GetExtension(OutputPath).ToLowerInvariant();
+	if (OutputExtension != Config.HtmlExtension && OutputExtension != Config.MarkdownExtension) {
+		throw new Exception($"compile output extension must be {Config.HtmlExtension} or {Config.MarkdownExtension}: {OutputPath}");
+	}
+	if (string.Equals(InputPath, OutputPath, StringComparison.OrdinalIgnoreCase)) {
+		throw new Exception("compile output path must differ from the input document path.");
+	}
+	return new CompileOptions(InputPath, OutputPath, RootPath, OutputExtension == Config.HtmlExtension);
+}
+
+async Task CompileSingle(CompileOptions Options, CT Ct) {
+	// 順序沿用 Build 的鐵律：先編 HTML（marker 是圖片發現的唯一來源），
+	// 再現場編譯 .gen 圖源、把全部 marker 圖片內嵌成 data URI，最後按擴展名分流輸出。
+	var InputDirectory = Path.GetDirectoryName(Options.InputPath)!;
+	var SearchBases = CompileSearchBases(InputDirectory, Options.RootPath);
+	var TempHtml = Path.Combine(Path.GetTempPath(), $"scriptorium-{Config.CompileCommand}-{Guid.NewGuid():N}{Config.HtmlExtension}");
+	try {
+		var CompileArgs = new List<string> {
+			"compile", "--root", Options.RootPath, "--format", Config.HtmlFormat,
+			"--features", Config.HtmlFeature,
+		};
+		AddTypstInputs(CompileArgs, Config.HtmlTarget);
+		CompileArgs.Add(Options.InputPath);
+		CompileArgs.Add(TempHtml);
+		await Exe(Typst, CompileArgs, Ct);
+		var Html = await File.ReadAllTextAsync(TempHtml, Ct);
+		var Context = BrowsingContext.New(Configuration.Default);
+		var Document = await Context.OpenAsync(Requester => Requester.Content(Html), Ct);
+		var Embedded = await EmbedCompileImages(Document, SearchBases, Options.RootPath, Ct);
+		Directory.CreateDirectory(Path.GetDirectoryName(Options.OutputPath)!);
+		if (Options.IsHtml) {
+			// 單文件 HTML 不留外部 CSS：Article.css 內嵌成 <style>，冪等標記與 LinkHtmlStyle 同源。
+			var StyleContent = await File.ReadAllTextAsync(Root/Config.HtmlStyleSourceFileName, Ct);
+			EmbedHtmlStyle(Document, StyleContent);
+			await File.WriteAllTextAsync(Options.OutputPath, Document.ToHtml(), Ct);
+		} else {
+			// .md 從同一份已內嵌圖片的 HTML 轉出，圖片因此同樣是 data URI。
+			await Write(Options.OutputPath, ConvertArticleToMarkdown(Document, ""), Ct);
+		}
+		await Echo($"{Config.CompileCommand}: embedded {Embedded} images -> {Options.OutputPath}", Ct);
+	} finally {
+		File.Delete(TempHtml);
+	}
+}
+
+List<string> CompileSearchBases(string InputDirectory, string RootPath) {
+	// marker 與圖源的查找基準：從輸入檔目錄逐級上溯到 root（含）爲止，就近優先。
+	// manifest 管線的 marker 相對「項目目錄」；compile 沒有 manifest，
+	// 項目目錄可能是輸入檔所在目錄，也可能是任何一級祖先（V2 的語言目錄佈局）。
+	var Bases = new List<string>();
+	var Current = InputDirectory;
+	while (true) {
+		Bases.Add(Current);
+		if (string.Equals(Current, RootPath, StringComparison.OrdinalIgnoreCase)) {
+			return Bases;
+		}
+		var Parent = Path.GetDirectoryName(Current);
+		if (Parent is null || Parent == Current) {
+			// 輸入檔目錄不在 root 之下屬於上游校驗漏洞；此處防無限循環。
+			throw new Exception($"compile input directory is not under the root: {InputDirectory}");
+		}
+		Current = Parent;
+	}
+}
+
+async Task<int> EmbedCompileImages(AngleSharp.Dom.IDocument Document, List<string> SearchBases, string RootPath, CT Ct) {
+	// 發現口與 Build 相同：只認 marker class；沒有 marker 的 img 不動
+	// （typst 原生 image() 的 HTML 導出自帶 data URI，本就無需處理）。
+	// 去處不同：Build 改相對路徑配外部文件，這裏就地換成 base64 data URI，成單文件。
+	var Cache = new Dictionary<string, string>(StringComparer.Ordinal);
+	var Embedded = 0;
+	foreach (var Image in Document.QuerySelectorAll(Config.HtmlImageSelector)) {
+		var Marker = Image.ClassList.FirstOrDefault(Class => Class.StartsWith(Config.ImageMarkerPrefix, StringComparison.Ordinal));
+		if (Marker is null) {
+			continue;
+		}
+		var AssetPath = Marker[Config.ImageMarkerPrefix.Length..];
+		// 與 Build 相同的安全邊界：marker 不得是絕對路徑、不得上穿。
+		if (Path.IsPathRooted(AssetPath) || AssetPath.Contains("..", StringComparison.Ordinal)) {
+			throw new Exception($"invalid HTML image asset path: {AssetPath}");
+		}
+		if (!Cache.TryGetValue(Marker, out var DataUri)) {
+			DataUri = await BuildCompileImageDataUri(AssetPath, SearchBases, RootPath, Ct);
+			Cache.Add(Marker, DataUri);
+		}
+		Image.SetAttribute("src", DataUri);
+		Image.ClassList.Remove(Marker);
+		if (string.IsNullOrWhiteSpace(Image.GetAttribute("class"))) {
+			Image.RemoveAttribute("class");
+		}
+		Embedded++;
+	}
+	return Embedded;
+}
+
+async Task<string> BuildCompileImageDataUri(string AssetPath, List<string> SearchBases, string RootPath, CT Ct) {
+	var FileName = Path.GetFileName(AssetPath);
+	var AssetStem = "";
+	foreach (var ImageFormat in Config.ImageFormats) {
+		var Suffix = Config.ImageGeneratedAssetSuffix + "." + ImageFormat.Format;
+		if (FileName.EndsWith(Suffix, StringComparison.Ordinal)) {
+			AssetStem = FileName[..^Suffix.Length];
+			break;
+		}
+	}
+	if (AssetStem != "") {
+		// .gen 資產：現場把圖源 .typ 編成 PNG（與 Build 的資產編譯同款 Target=Pdf 與 PPI）。
+		var SourcePath = FindCompileGeneratorSource(AssetStem, SearchBases);
+		if (SourcePath is not null) {
+			var Format = Config.ImageFormats.FirstOrDefault(F => F.Format == Config.CompileImageFormat)
+				?? throw new Exception($"compile image format '{Config.CompileImageFormat}' is not configured in ImageFormats.");
+			var Bytes = await CompileImageBytes(SourcePath, RootPath, Format, Ct);
+			return $"data:{ImageMime("." + Format.Format)};base64,{Convert.ToBase64String(Bytes)}";
+		}
+	}
+	// 普通資產，或找不到圖源但盤上已有現成生成物：直接讀文件內嵌。
+	var ExistingPath = FindCompileExistingAsset(AssetPath, AssetStem, SearchBases)
+		?? throw new Exception($"compile cannot resolve image asset: {AssetPath}");
+	var ImageBytes = await File.ReadAllBytesAsync(ExistingPath, Ct);
+	return $"data:{ImageMime(Path.GetExtension(ExistingPath).ToLowerInvariant())};base64,{Convert.ToBase64String(ImageBytes)}";
+}
+
+string? FindCompileGeneratorSource(string AssetStem, List<string> SearchBases) {
+	// 候選與 Build 的 FindGeneratorSource 同源：完整名、去項目後綴、首段。
+	// 沒有 manifest 提供項目名，「_目錄名」後綴對每個上溯基準目錄都試一遍
+	//（項目目錄可能是輸入檔的任何一級祖先，如 V2 的語言目錄佈局）。
+	var Candidates = new List<string> { AssetStem + Config.TypstDocumentExtension };
+	foreach (var Base in SearchBases) {
+		var DirectorySuffix = "_" + Path.GetFileName(Base);
+		if (AssetStem.EndsWith(DirectorySuffix, StringComparison.Ordinal)) {
+			Candidates.Add(AssetStem[..^DirectorySuffix.Length] + Config.TypstDocumentExtension);
+		}
+	}
+	Candidates.Add(AssetStem.Split('_', 2)[0] + Config.TypstDocumentExtension);
+	foreach (var Candidate in Candidates.Distinct(StringComparer.Ordinal)) {
+		// 候選名優先於位置：先試完整名再試降級名，與 Build 一致。
+		foreach (var Base in SearchBases) {
+			var Full = Path.Combine(Base, Candidate);
+			if (File.Exists(Full)) {
+				return Full;
+			}
+		}
+	}
+	return null;
+}
+
+string? FindCompileExistingAsset(string AssetPath, string AssetStem, List<string> SearchBases) {
+	// 先按 marker 原路徑找（普通圖與已預生成的 .gen.png 都走這條），
+	// 再試 .gen.svg 兄弟文件（與 Build 的現成 SVG 後備同義）。
+	var Names = new List<string> { Path.GetFileName(AssetPath) };
+	if (AssetStem != "") {
+		Names.Add(AssetStem + Config.ImageGeneratedAssetSuffix + "." + Config.ImageExistingVectorFormat);
+	}
+	// GetDirectoryName 對已驗證的相對 marker 路徑只會回 ""，不會回 null；null 合併僅安撫可空標註。
+	var AssetDirectory = Path.GetDirectoryName(AssetPath) ?? "";
+	foreach (var Name in Names) {
+		foreach (var Base in SearchBases) {
+			var Full = AssetDirectory.Length == 0 ? Path.Combine(Base, Name) : Path.Combine(Base, AssetDirectory, Name);
+			if (File.Exists(Full)) {
+				return Full;
+			}
+		}
+	}
+	return null;
+}
+
+async Task<byte[]> CompileImageBytes(string SourcePath, string RootPath, ImageOutput Format, CT Ct) {
+	// 輸出先落臨時文件再讀回，避免 PNG 二進位走 stdout 的編碼不確定性。
+	var TempImage = Path.Combine(Path.GetTempPath(), $"scriptorium-{Config.CompileCommand}-{Guid.NewGuid():N}.{Format.Format}");
+	try {
+		var CompileArgs = new List<string> {
+			"compile", "--root", RootPath, "--format", Format.Format,
+		};
+		if (Format.Ppi is not null) {
+			// 位圖 PPI 由配置決定；向量格式不添加 --ppi。
+			CompileArgs.Add("--ppi");
+			CompileArgs.Add(Format.Ppi.Value.ToString());
+		}
+		AddTypstInputs(CompileArgs, Config.PdfTarget);
+		CompileArgs.Add(SourcePath);
+		CompileArgs.Add(TempImage);
+		await Exe(Typst, CompileArgs, Ct);
+		return await File.ReadAllBytesAsync(TempImage, Ct);
+	} finally {
+		File.Delete(TempImage);
+	}
+}
+
+string ImageMime(string Extension) {
+	// 單文件內嵌只覆蓋常見位圖與 SVG；其他擴展在嵌入前就報錯，不猜 MIME。
+	return Extension switch {
+		".png" => "image/png",
+		".jpg" or ".jpeg" => "image/jpeg",
+		".gif" => "image/gif",
+		".svg" => "image/svg+xml",
+		".webp" => "image/webp",
+		_ => throw new Exception($"unsupported image extension for embedding: {Extension}"),
+	};
+}
+
+void EmbedHtmlStyle(AngleSharp.Dom.IDocument Document, string StyleContent) {
+	// 與 LinkHtmlStyle 同一個冪等標記，但載體從外部 link 換成內嵌 <style>：
+	// 單文件輸出必須自帶樣式，不能依賴旁邊的 _mvn.css。
+	var Head = Document.Head ?? throw new Exception("HTML head is missing from typst export.");
+	var StyleMarkerSelector = $"[{Config.HtmlStyleMarkerAttribute}='{Config.HtmlStyleMarkerValue}']";
+	foreach (var Existing in Head.QuerySelectorAll($"style{StyleMarkerSelector}, link{StyleMarkerSelector}")) {
+		Existing.Remove();
+	}
+	var Style = Document.CreateElement("style");
+	Style.SetAttribute(Config.HtmlStyleMarkerAttribute, Config.HtmlStyleMarkerValue);
+	Style.TextContent = StyleContent;
+	Head.AppendChild(Style);
 }
 
 string RequireManifestPath(IList<string> Arguments) {
@@ -677,18 +933,21 @@ async Task ConvertHtmlToMarkdown(string HtmlPath, string MarkdownPath, CT Ct) {
 	var Html = await File.ReadAllTextAsync(HtmlPath, Ct);
 	var Context = BrowsingContext.New(Configuration.Default);
 	var Document = await Context.OpenAsync(Requester => Requester.Content(Html), Ct);
+	// 只取 article 內文，避免把發布頁的容器本身寫成 Markdown 中的原始 HTML。
+	await Write(MarkdownPath, ConvertArticleToMarkdown(Document, Html), Ct);
+}
+
+string ConvertArticleToMarkdown(AngleSharp.Dom.IDocument Document, string FallbackHtml) {
 	// 只把文章內容交給 ReverseMarkdown；外層 article 是發布頁容器，不屬於正文 Markdown。
+	// Typst HTML 會包含 figure 等語義容器；跳過未知外殼，讓庫繼續轉換其中的圖片和圖注。
 	var Article = Document.QuerySelector(Config.HtmlArticleSelector)?.InnerHtml
 		?? Document.Body?.InnerHtml
-		?? Html;
-	// 只取 article 內文，避免把發布頁的容器本身寫成 Markdown 中的原始 HTML。
-	// Typst HTML 會包含 figure 等語義容器；跳過未知外殼，讓庫繼續轉換其中的圖片和圖注。
+		?? FallbackHtml;
+	// ReverseMarkdown 負責 HTML 標籤、列表、代碼和圖片的轉換；本腳本不維護第二套解析器。
 	var Converter = new ReverseMarkdown.Converter(new ReverseMarkdown.Config {
 		UnknownTags = ReverseMarkdown.Config.UnknownTagsOption.Bypass,
 	});
-	// ReverseMarkdown 負責 HTML 標籤、列表、代碼和圖片的轉換；本腳本不維護第二套解析器。
-	var Markdown = Converter.Convert(Article).TrimEnd() + Environment.NewLine;
-	await Write(MarkdownPath, Markdown, Ct);
+	return Converter.Convert(Article).TrimEnd() + Environment.NewLine;
 }
 
 List<HtmlImage> DiscoverHtmlImages(List<string> HtmlPaths, string Output, string ProjectId) {
@@ -928,10 +1187,13 @@ sealed class MvnConfig {
 	public string BuildAllCommand { get; } = "build-all";
 	public string ListCommand { get; } = "list";
 	public string ZhihuCommand { get; } = "zhihu";
+	public string CompileCommand { get; } = "compile";
+	// compile 子命令的 --root 參數名；默認值 "." 按調用時的工作目錄解析。
+	public string CompileRootOptionName { get; } = "--root";
 	// 知乎控制台取得的圖片地址目前都位於 pic*.zhimg.com；限制 host 可及早發現複製到非 URL 資料。
 	public string ZhihuImageHostSuffix { get; } = ".zhimg.com";
 	// 无参数时显示的命令行用法。
-	public string UsageText => $"Usage: dotnet script Scriptorium.csx <check|build|build-all|list|zhihu> [Manifest{TypstDocumentExtension}]";
+	public string UsageText => $"Usage: dotnet script Scriptorium.csx <check|build|build-all|list|zhihu|compile> [Manifest{TypstDocumentExtension}]";
 	// manifest 中声明的 OpenCC 生成器名称。
 	public string OpenCcGeneratorName { get; } = "OpenCC";
 	// manifest 暴露的 OpenCC 转换模式名称。
@@ -959,6 +1221,8 @@ sealed class MvnConfig {
 		new("svg", null),
 		new("png", 600),
 	];
+	// compile 內嵌 .gen 生成圖時使用的格式；只取 ImageFormats 中同名條目的 Format 與 Ppi。
+	public string CompileImageFormat { get; } = "png";
 	// AngleSharp 查询带图片 marker 的 img 元素。
 	public string HtmlImageSelector { get; } = "img[class]";
 	// Markdown 转换时保留的正文容器选择器。
@@ -1102,6 +1366,8 @@ record ResolvedDoc(
 record HtmlImage(string AssetPath, string? Source, string AssetDirectory, string Name);
 // zhihu 命令的三個顯式文件參數；來源與輸出必須分開，避免覆寫網站用 HTML。
 record ZhihuOptions(string HtmlPath, string OutputPath, string ImagesPath);
+// compile 命令的顯式路徑與輸出格式；IsHtml 為 false 時輸出 Markdown。
+record CompileOptions(string InputPath, string OutputPath, string RootPath, bool IsHtml);
 // 發布目錄中的輕量索引，不是第二份構建配置。
 // 它保留語言和生成器信息，讓發布消費者知道每個文檔如何得到。
 record PublishedIndex {
