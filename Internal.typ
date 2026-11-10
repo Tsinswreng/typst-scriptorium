@@ -14,6 +14,11 @@
 		.map(Pair => {
 			let Item = Pair.at(1)
 			block(above: 1em, below: 1em)[
+				// 首行縮進歸零：本函數已用 h(ListIndent×Depth) 承擔列表縮進，
+				// 項內不能再吃一次 _Show 的全局 first-line-indent，
+				// 否則項內含塊級元素（如代碼塊）時，標記行會被多縮進一次，
+				// 與同層級其他項的標記對不齊。
+				#set par(first-line-indent: 0pt)
 				#h(Cfg.ListIndent * Depth)
 				#text(fill: Cfg.ColorListNum)[#ListMarkers.at(calc.rem(Depth - 1, ListMarkers.len()))]
 				#h(0.5em)
@@ -34,6 +39,8 @@
 			let Item = Pair.at(1)
 			let NumPath = Path + (Pair.at(0) + 1,)
 			block(above: 1em, below: 1em)[
+				// 同 ListRender：標記行不吃全局首行縮進，否則編號會多縮進一次。
+				#set par(first-line-indent: 0pt)
 				#h(Cfg.EnumIndent * Depth)
 				#text(fill: Cfg.ColorListNum)[#numbering("1.", ..NumPath)]
 				#h(0.5em)

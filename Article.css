@@ -123,6 +123,14 @@ li {
 	text-indent: calc(2 * var(--tswg-scrptm-em)); /* ListIndent/EnumIndent = CustomPIndent */
 }
 
+/* 項內含塊級元素時，Typst 會把項內容導成 <p>。
+   <p> 是塊級，marker 會被擠到單獨一行、文字另起一行，
+   於是同層級的 · 落在不同位置。把首個 <p> 改成行內，
+   marker 與項首文字回到同一行，縮進仍由 li 的 text-indent 承擔。 */
+li > p:first-child {
+	display: inline;
+}
+
 /* 嵌套層級：首行縮進逐級加深（PDF 靶是 D×ListIndent），續行仍頂格。 */
 li li {
 	text-indent: calc(4 * var(--tswg-scrptm-em));
