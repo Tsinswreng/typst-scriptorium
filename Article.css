@@ -180,6 +180,7 @@ th, td {
 /* 多行代碼塊。_Common.typ 的 HTML 靶輸出 div.tswg-scrptm-code-block，不帶行內樣式；
    PDF 靶的底色 ColorCodeBack、1pt ColorCodeBorder、內距 0.75em（錨在代碼字號上）、無圓角。 */
 .tswg-scrptm-code-block {
+	position: relative; /* 語言標籤絕對定位到框外，需要定位包含塊 */
 	margin: calc(0.2 * var(--tswg-scrptm-em)) 0; /* Typst 塊默認間距 1.2em 減一條行距 */
 	padding: calc(0.75 * var(--tswg-scrptm-code-em) - var(--tswg-scrptm-code-line-slack)) calc(0.75 * var(--tswg-scrptm-code-em));
 	/* 字號落在塊上，塊內的行框（含 pre 的 strut）才都是代碼的行高。 */
@@ -212,16 +213,30 @@ code {
 	line-height: var(--tswg-scrptm-code-line-height);
 }
 
-/* 語言標籤：PDF 是代碼之上、右對齊的一行。
-   這裡讀 code 的 data-lang 屬性生成，故未重建的舊頁面也會有標籤。 */
-code[data-lang]::before {
+/* 語言標籤：與 PDF 同款——框外右上角、框的上邊之上、右對齊、緊貼框緣。
+   這裡讀 code 的 data-lang 屬性生成，故未重建的舊頁面（帶本 class 包裝 div 的）也會有標籤。
+   絕對定位不佔文檔流，框上方的空間由下一條 :has 規則的 margin-top 騰出；
+   pre 的 overflow-x 不會裁到它：其包含塊（本 div）在 pre 之外。 */
+.tswg-scrptm-code-block code[data-lang]::before {
 	content: attr(data-lang);
-	display: block;
-	padding-bottom: calc(0.4 * var(--tswg-scrptm-code-em)); /* block(below: 0.4em)，em 同樣錨在代碼字號上 */
+	position: absolute;
+	right: 0;
+	/* 100% 把標籤底邊擡到框的上邊（padding box 頂）之上、再留縫；
+	   PDF 靶 block(below: 0.3em) 同值，em 錨在代碼字號上。 */
+	bottom: calc(100% + 0.3 * var(--tswg-scrptm-code-em));
 	font-size: calc(0.8 * var(--tswg-scrptm-code-em)); /* CodeLangLabelTextSize，實測 10.56pt */
 	line-height: var(--tswg-scrptm-line-box);
 	color: #00cccc; /* ColorCodeLangLabel */
-	text-align: right;
+}
+
+/* 有語言標籤的塊：把標籤行高與縫隙計進 margin-top，免得標籤壓到上文。
+   不支援 :has 的舊瀏覽器只退化爲標籤稍稍侵入上一行的行距餘量。 */
+.tswg-scrptm-code-block:has(code[data-lang]) {
+	margin-top: calc(
+		0.2 * var(--tswg-scrptm-em) /* 原有：框與上文的間距 */
+		+ 0.8 * var(--tswg-scrptm-line-box) * var(--tswg-scrptm-code-em) /* 標籤一行 */
+		+ 0.3 * var(--tswg-scrptm-code-em) /* 標籤與框邊的縫，同 ::before 的 bottom */
+	);
 }
 
 /* 引用塊。_Common.typ 的 HTML 靶輸出 div.tswg-scrptm-quote；

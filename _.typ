@@ -389,28 +389,38 @@
 					#box(width: 100%)[#it]
 				]
 			} else {
+				// 語言標籤：框外右上角、框的上邊之上單獨一行，緊貼框緣。
+				// lang 取自圍欄 info string；無 lang 的塊整行不出現。
+				// HTML 靶：由 CSS 讀 code 的 data-lang 屬性生成同一行標籤
+				// （絕對定位到框外，見 Article.css）。
+				// 標籤塊 sticky：分頁時與代碼框的起始片段同進退、不孤留頁尾
+				// （同 figure caption / 一級標題底線塊的手法）。
+				// 不可用外層 breakable: false 的包裝塊來綁——
+				// 那會連代碼框一起變成不可跨頁（2026-11-11 用戶退回的教訓）。
+				if it.lang != none [
+					// 與框邊的間距 0.3em（錨在代碼字號上）：
+					// python 一類帶下探部的字墨距框邊線約 1.3pt，
+					// 再小（實測 0.2em 時）字墨會吻到框線；Article.css 的 ::before bottom 同值。
+					#block(width: 100%, sticky: true, below: 0.3em)[
+						#align(right)[
+							#text(
+								size: Cfg.CodeLangLabelTextSize,
+								fill: Cfg.ColorCodeLangLabel,
+							)[#it.lang]
+						]
+					]
+				]
+				// above 歸零：與標籤的間距全由標籤塊的 below 控制（弱間距塌縮取 max）；
+				// 對外的前後間距由塊默認 above/below（1.2em）與 par 間距塌縮提供，與舊單塊一致。
+				// 不顯式傳 breakable：代碼框保持默認可跨頁，長塊分頁續排。
 				block(
 					width: 100%,
 					fill: Cfg.ColorCodeBack,
 					stroke: Cfg.StrokeCodeBorder + Cfg.ColorCodeBorder,
 					inset: 0.75em,
+					above: 0pt,
 					//radius: 2pt,
-				)[
-					// 語言標籤：代碼塊內右上角、代碼之上單獨一行。
-					// lang 取自圍欄 info string；無 lang 的塊整行不出現。
-					// HTML 靶：由 CSS 讀 code 的 data-lang 屬性生成同一行標籤。
-					#if it.lang != none [
-						#block(width: 100%, below: 0.4em)[
-							#align(right)[
-								#text(
-									size: Cfg.CodeLangLabelTextSize,
-									fill: Cfg.ColorCodeLangLabel,
-								)[#it.lang]
-							]
-						]
-					]
-					#it
-				]
+				)[#it]
 			}
 		}
 		// 行內代碼：白字 + 與塊級代碼同底色同邊框的 chip。

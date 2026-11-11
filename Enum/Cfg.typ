@@ -37,7 +37,8 @@
 #let ColorRefUnderline = ColorRefText
 #let ColorLinkText = ColorRefText
 // 多行代碼塊右上角的語言標籤：文本取自圍欄 info string（寫 `typst` 的塊顯示 typst）。
-// 無 lang 的塊不顯示標籤。僅 PDF 靶；HTML 靶暫未適配，見下方 show raw。
+// 無 lang 的塊不顯示標籤。2026-11-11 起標籤在框外、框的上邊之上（緊貼框緣、居右）：
+// PDF 靶見 _.typ 的 show raw.where(block: true)；HTML 靶由 Article.css 生成。
 #let ColorCodeLangLabel = ColorRefText
 #let CodeLangLabelTextSize = 0.8em
 // 標題編号後豎線之色
