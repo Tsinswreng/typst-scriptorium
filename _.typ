@@ -410,15 +410,21 @@
 						]
 					]
 				]
-				// above 歸零：與標籤的間距全由標籤塊的 below 控制（弱間距塌縮取 max）；
-				// 對外的前後間距由塊默認 above/below（1.2em）與 par 間距塌縮提供，與舊單塊一致。
+				// above：有語言標籤時歸零，
+				// 與標籤的間距全由標籤塊的 below(0.3em) 控制（弱間距塌縮取 max）。
+				// 無 lang 的塊*不可*歸零：它上方沒有標籤塊去補那層上距，
+				// 框的頂邊會正好落在上一行行盒下沿，
+				// 1pt 框線（居中於邊）連同抗鋸齒切掉上一行字墨最底一道，
+				// 看上去就像框把上面的字遮住了（2026-11-12 用戶在 Storage 篇報出）。
+				// 故無 lang 沿用塊默認 above（auto 即 1.2em），
+				// 與 2026-11-11 把標籤遷到框外之前的老樣子一致。
 				// 不顯式傳 breakable：代碼框保持默認可跨頁，長塊分頁續排。
 				block(
 					width: 100%,
 					fill: Cfg.ColorCodeBack,
 					stroke: Cfg.StrokeCodeBorder + Cfg.ColorCodeBorder,
 					inset: 0.75em,
-					above: 0pt,
+					above: if it.lang == none { auto } else { 0pt },
 					//radius: 2pt,
 				)[#it]
 			}
