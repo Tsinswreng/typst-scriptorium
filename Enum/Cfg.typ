@@ -10,8 +10,8 @@
 #let CjkStroke_Regular = 0.030em
 #let CjkStroke_Bold = 0.015em
 #let CjkChars = "[\p{script=Han}！-･〇-〰—]+"
-#let ColorFore = white //rgb("#f0f0f0")
-#let ColorBack = black
+#let ColorFore = white //rgb("#f8f8f8") //white //
+#let ColorBack = rgb("#222222") //black
 #let ColorCodeBack = rgb("#002020")
 #let ColorInlineCodeBack = rgb("#004040")
 // 代碼塊／引用塊的邊框：顏色比底色亮一階，粗細單獨控制；HTML 與 PDF 共用此二值。
