@@ -537,12 +537,12 @@
 		// Typst 列表項內建是懸掛縮進：續行鎖在正文列，
 		// 實測 indent／show 規則塞 h／負 par hanging-indent 三路都出不去，
 		// 「首行縮進、換行頂格」只能重造。
-		// PDF 靶由上方 ListRender/EnumRender 遞歸接管（層級縮進 D×Cfg.ListIndent、
+		// PDF 靶由 Internal.typ 的 Render 遞歸接管（層級縮進 D×縮進量、
 		// 標記 •‣– 按深度循環、enum 編號路徑顯式攜帶）；
 		// HTML 靶保持原生 li（層級、標記、編號全原生），
 		// 首行縮進由 Article.css 的 li text-indent 補。
-		show list: it => if Target == Targets.Html { it } else { ListRender(it, 1) }
-		show enum: it => if Target == Targets.Html { it } else { EnumRender(it, 1) }
+		show list: it => if Target == Targets.Html { it } else { Render(it, 1) }
+		show enum: it => if Target == Targets.Html { it } else { Render(it, 1) }
 		if false{//debug only
 			show par: it => block(
 			stroke: (left: 2pt + red),
