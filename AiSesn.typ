@@ -106,16 +106,13 @@
 if Target == Targets.Html {
 		html.elem("div", attrs: (class: Html.AiQClass))[#question]
 	} else {
-		box(
-		)[
-			#block(
+			block(
+				breakable: true,
 				stroke: Cfg.StrokeCodeBorder + Cfg.ColorCodeBorder,
 				fill: rgb("#0000ff44"),
 				width: 100%,
 				inset: 1em,
 			)[#question]
-		]
-		
 	}
 	//v(1em)
 	//box(width: 100%, height: 1pt, fill: Cfg.ColorStrong)
