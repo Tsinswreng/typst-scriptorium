@@ -1,4 +1,5 @@
 #import "Target.typ": *
+#import "Enum/Html.typ": HtmlAssetMarkerPrefix
 
 // BasePath 僅供 PDF image(...) 使用；HtmlBase 是項目根目錄下的資產路徑。
 #let FnImgGen(BasePath, HtmlBase: "assets/") = {

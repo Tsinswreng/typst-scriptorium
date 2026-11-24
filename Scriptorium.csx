@@ -43,10 +43,13 @@ var Config = new MvnConfig();
 // ManifestV1 是 _Manifest.typ 中 metadata 的 label；不要把正文文件當 manifest 讀取。
 // label 和文件名也只在 MvnConfig 內定義一次。
 
-// Root 固定為本腳本所在目錄；Publish 是所有項目的共同發布目錄。
-// CsxDir() 來自 CsSh，確保從任意目前工作目錄啟動時仍以腳本位置為基準。
+// Root 固定為本腳本所在目錄；Publish 是省略 -o 時的默認輸出根。
+// 不用 CsxDir()：實測它錨定到*入口*腳本的目錄，被 #load 時（如 _Mvn/BuildAll.csx）
+// 會錯指到加載者所在目錄；[CallerFilePath] 錨定*聲明文件*，恆爲本倉庫根。
+// 教訓：該屬性必須掛在函數自己的參數上，函數體內轉調會錨死在中間函數的文件。
+string? SelfPath([System.Runtime.CompilerServices.CallerFilePath] string? Me = null) => Me;
 var Ct = CT.None;
-var Root = CsxDir();
+var Root = FullPath(Path.GetDirectoryName(Path.GetFullPath(SelfPath()!))!);
 var Publish = Root/Config.PublishDirectoryName;
 // MVN_TYPST_PATH 可指向未加入 PATH 的便攜版 Typst；未設置時交給 PATH 查找 typst。
 var Typst = GetEnv(Config.TypstEnvironmentVariableName) ?? Config.DefaultTypstExecutable;
@@ -54,6 +57,18 @@ var Typst = GetEnv(Config.TypstEnvironmentVariableName) ?? Config.DefaultTypstEx
 // WriteIndented 只影響發布的 manifest.json，不影響輸入 manifest 的解析。
 var Json = Config.JsonSerializerOptions;
 
+// ── 入口守衛（csx 版 if __name__ == '__main__'；配方與實測見 AiMemory/CsxMainGuard.typ）──
+// dotnet-script 沒有內建主模組判別：以 [CallerFilePath]（此頂層調用處＝本文件）
+// 對比宿主命令行裏第一個存在於磁盤的 .csx（即入口腳本）。
+// 被 #load 時守衛爲 false：頂層初始化與全部函數照常暴露給加載者，命令分派整段跳過。
+bool IsEntry([System.Runtime.CompilerServices.CallerFilePath] string? Me = null) {
+	var Entry = Environment.GetCommandLineArgs()
+		.FirstOrDefault(Arg => Arg.EndsWith(".csx", StringComparison.OrdinalIgnoreCase) && File.Exists(Arg));
+	return Me is not null && Entry is not null
+		&& string.Equals(Path.GetFullPath(Me), Path.GetFullPath(Entry), StringComparison.OrdinalIgnoreCase);
+}
+
+if (IsEntry()) {
 // 無參數時只顯示用法，不建立或刪除任何文件。
 if (Args.Count == 0) {
 	// 沒有命令時不猜測用戶意圖，也不執行默認 build，避免意外修改 _Publish。
@@ -72,15 +87,16 @@ try {
 		ResolveUnits(Path.GetDirectoryName(CheckPath)!, CheckManifest);
 		await Echo($"valid: {CheckPath}", Ct);
 	} else if (Args[0] == Config.BuildCommand) {
-		// build 只構建命令列指定的單一項目。
+		// build 構建命令列指定的單一項目；-o 給輸出根（可選，默認 Publish）。
 		// Build 內部會先驗證配置，再覆寫該項目的同名構建產物。
-		await Build(RequireManifestPath(Args), Ct);
+		var BuildOptions = ParseBuildOptions(Args);
+		await Build(BuildOptions.ManifestPath, BuildOptions.OutputRoot is null ? Publish : FullPath(BuildOptions.OutputRoot), Ct);
 	} else if (Args[0] == Config.BuildAllCommand) {
 		// _Publish 也可能包含複製的 _Manifest.typ，必須排除它們。
 		// Glob 遍歷整個腳本根目錄，因此每個項目都會被獨立構建。
 		foreach (var Entry in Glob(Root/$"**/{Config.ManifestFileName}")) {
 			if (!IsUnder(Entry, Publish)) {
-				await Build(Entry, Ct);
+				await Build(Entry, Publish, Ct);
 			}
 		}
 	} else if (Args[0] == Config.ListCommand) {
@@ -109,6 +125,7 @@ catch (Exception Error) {
 	await Write(Stderr, $"Mvn: {Error.Message}{Environment.NewLine}", Ct);
 	return 1;
 }
+} // 入口守衛結束
 
 ZhihuOptions ParseZhihuOptions(IList<string> Arguments) {
 	// zhihu 僅接受一個來源 HTML，所有選項都必須顯式給值，避免把 URL 清單或輸出檔誤當來源。
@@ -459,6 +476,19 @@ string RequireManifestPath(IList<string> Arguments) {
 	return Path.GetFullPath(Arguments[1]);
 }
 
+record BuildOptions(string ManifestPath, string? OutputRoot);
+
+BuildOptions ParseBuildOptions(IList<string> Arguments) {
+	// build <manifest> [-o <輸出根>]；-o 相對路徑按當前工作目錄解析。
+	if (Arguments.Count == 2) {
+		return new BuildOptions(Path.GetFullPath(Arguments[1]), null);
+	}
+	if (Arguments.Count == 4 && Arguments[2] == Config.BuildOutputOptionName) {
+		return new BuildOptions(Path.GetFullPath(Arguments[1]), Path.GetFullPath(Arguments[3]));
+	}
+	throw new Exception($"usage: dotnet script Scriptorium.csx {Config.BuildCommand} <Manifest{Config.TypstDocumentExtension}> [{Config.BuildOutputOptionName} <OutRoot>]");
+}
+
 void AddTypstInputs(
 	List<string> Arguments,
 	string Target,
@@ -480,12 +510,15 @@ void AddTypstInputs(
 	}
 }
 
-async Task Build(string ManifestPath, CT Ct) {
+async Task Build(string ManifestPath, Pth OutRoot, CT Ct, bool Prepare = true) {
 	// 先讀取並驗證 manifest，再覆寫構建產物，避免無效配置破壞既有發布結果。
+	// OutRoot 是本次輸出根；發布副本採「鏡像自包含」布局（見 PrepareRoot 註釋），
+	// 所有 Typst 編譯的 --root 統一指向 OutRoot，不再是腳本旁固定的 _Publish。
+	// Prepare=false：調用者（批量並行）已統一做過公共準備，跳過以免並行同寫撞鎖。
 	var Manifest = await ReadManifest(ManifestPath, Ct);
 	var Project = Path.GetDirectoryName(ManifestPath)!;
 	var ProjectId = Path.GetFileName(Project);
-	var Output = Publish/ProjectId;
+	var Output = OutRoot/Config.ArticlesDirectoryName/ProjectId;
 
 	// ProjectId 同時是發布目錄名和 manifest.json 的 Id；兩者不一致時停止，
 	// 避免同一項目被錯誤地寫入另一個發布目錄。
@@ -497,20 +530,18 @@ async Task Build(string ManifestPath, CT Ct) {
 	// V2 的入口是「目錄 + 檔名」，V1 是「相對項目根的檔名」；兩者都解析成同一份編譯清單。
 	var Docs = ResolveUnits(Project, Manifest);
 
+	// 公共準備（scriptorium 樹 + articles 聚合器）冪等可重入；並行批量時由調用者預先跑過。
+	if (Prepare) {
+		await PrepareRoot(OutRoot, FullPath(Path.GetDirectoryName(Project)!)/Config.CommonTypstFileName, Ct);
+	}
 	// 發布目錄採增量覆寫，保留使用者放入的圖片 URL 清單等非構建文件。
 	// 因此來源已刪除或改名的文件不會自動從發布目錄移除，需由使用者另行明確清理。
 	await Mkdir(Output, Ct);
 	// 發布副本必須包含源文件和普通資產，因為 Typst 編譯時仍會按相對路徑讀取它們。
 	await Cp(Project/"*", Output, new(Overwrite: true), Ct);
-	// Main.typ 通常會 import ../_Common.typ；把共用文件放在 _Publish 根部才能保持相對導入。
-	await Cp(Root/Config.CommonTypstFileName, Publish/Config.CommonTypstFileName, new(Overwrite: true), Ct);
-	// _Common.typ 現在是聚合器，本體在同名目錄 _Common/ 下（_Common.typ 自己 import 它們）。
-	// 目錄要整個搬到發布根，否則發布副本編譯時 _Common/Cfg.typ 之類會 file not found。
-	// 用 glob 進既有目錄，與上面複製項目用的是同一種寫法（不依賴目錄對目錄的複製語義）。
-	await Mkdir(Publish/Config.CommonDirectoryName, Ct);
-	await Cp(Root/Config.CommonDirectoryName/"*", Publish/Config.CommonDirectoryName, new(Overwrite: true), Ct);
-	// _Common.typ 的 set raw(theme: ...) 按 _Common.typ 所在目錄解析主題路徑；缺此文件時 HTML/PDF 編譯都會報 file not found。
-	await Cp(Root/Config.CommonTypstThemeFileName, Publish/Config.CommonTypstThemeFileName, new(Overwrite: true), Ct);
+	// 家族A接線（多層 ../ 直連 scriptorium，源樹爲 tinymist 雙 root 兼容而設）
+	// 在鏡像布局裏落點出界；只在副本裏改寫爲 root 絕對路徑，源碼不動。
+	await RewriteEntryImports(Output, Ct);
 
 	// 生成只寫入發布副本。源倉庫中的同名舊文件不會被當作自動生成結果使用。
 	if (Manifest.V2 is not null) {
@@ -527,7 +558,7 @@ async Task Build(string ManifestPath, CT Ct) {
 		// Doc.Source 是發布副本內的相對 .typ 路徑；輸出文件則按入口名固定命名。
 		var OutputPath = Output/$"{Doc.Name}{Config.HtmlExtension}";
 		var CompileArgs = new List<string> {
-			"compile", "--root", Publish, "--format", Config.HtmlFormat,
+			"compile", "--root", OutRoot, "--format", Config.HtmlFormat,
 			"--features", Config.HtmlFeature,
 		};
 		AddTypstInputs(CompileArgs, Config.HtmlTarget, Doc.Lang, Doc.Inputs);
@@ -549,7 +580,7 @@ async Task Build(string ManifestPath, CT Ct) {
 			var Destination = Output/Image.AssetDirectory/$"{Image.Name}{Config.ImageGeneratedAssetSuffix}.{Format.Format}";
 			await Mkdir(Path.GetDirectoryName(Destination)!, Ct);
 			var CompileArgs = new List<string> {
-				"compile", "--root", Publish, "--format", Format.Format,
+				"compile", "--root", OutRoot, "--format", Format.Format,
 			};
 			if (Format.Ppi is not null) {
 				// 位圖 PPI 由配置決定；SVG 等向量格式不添加 --ppi。
@@ -568,7 +599,7 @@ async Task Build(string ManifestPath, CT Ct) {
 		// PDF 不使用 HTML marker；此時所有 .gen 圖片已經存在於發布副本。
 		var OutputPath = Output/$"{Doc.Name}{Config.PdfExtension}";
 		var CompileArgs = new List<string> {
-			"compile", "--root", Publish, "--format", Config.PdfFormat,
+			"compile", "--root", OutRoot, "--format", Config.PdfFormat,
 		};
 		AddTypstInputs(CompileArgs, Config.PdfTarget, Doc.Lang, Doc.Inputs);
 		CompileArgs.Add(Output/Doc.Source);
@@ -620,6 +651,62 @@ async Task Build(string ManifestPath, CT Ct) {
 		};
 	await Write(Output/Config.PublishedManifestFileName, JsonSerializer.Serialize(Index, Json), Ct);
 	await Echo($"built {Manifest.Id} -> {Output}", Ct);
+}
+
+async Task PrepareRoot(Pth OutRoot, Pth AggregatorSource, CT Ct) {
+	// 輸出根的「鏡像自包含」準備，冪等可重入；並行批量構建時必須在任務展開前跑一次：
+	// + scriptorium 整棵複製到 <OutRoot>/tsinswreng-scriptorium/，
+	//   articles 聚合器寫的 ../tsinswreng-scriptorium 由此在副本裏解析成立；
+	// + articles 聚合器（_Common.typ）放到 <OutRoot>/articles/，
+	//   家族B文章的 ../../_Common.typ 由此成立；
+	// + ArticleBase 的 ../articles/ 深度約定（PDF 圖片路徑）在同一布局下原樣成立。
+	// 排除 .git（倉庫元數據不進發布副本）與 _Publish（避免默認輸出根自我嵌套複製）。
+	var ScriptoriumDestination = OutRoot/Config.ScriptoriumDirectoryName;
+	await Mkdir(ScriptoriumDestination, Ct);
+	foreach (var Entry in Directory.EnumerateFileSystemEntries(Root)) {
+		var Name = Path.GetFileName(Entry);
+		if (Name is ".git" || Name == Config.PublishDirectoryName) {
+			continue;
+		}
+		var Destination = ScriptoriumDestination/Name;
+		if (Directory.Exists(Entry)) {
+			await Mkdir(Destination, Ct);
+			// 空目錄（如重構後的 Internal/）只保形不復製：Cp 的 glob 空匹配會拋異常。
+			if (Directory.EnumerateFileSystemEntries(Entry).Any()) {
+				await Cp(FullPath(Entry)/"*", Destination, new(Overwrite: true), Ct);
+			}
+		} else {
+			await Cp(FullPath(Entry), Destination, new(Overwrite: true), Ct);
+		}
+	}
+	if (!IsFile(AggregatorSource)) {
+		throw new Exception($"articles aggregator is required: {AggregatorSource}");
+	}
+	var ArticlesDestination = OutRoot/Config.ArticlesDirectoryName;
+	await Mkdir(ArticlesDestination, Ct);
+	await Cp(AggregatorSource, ArticlesDestination/Config.CommonTypstFileName, new(Overwrite: true), Ct);
+	// 家族B的聚合鏈是三層：文章 -> articles/_Common.typ -> ../_Common.typ -> ../tsinswreng-scriptorium/_.typ。
+	// 前兩跳在鏡像布局裏原樣成立（articles 聚合器原樣復制即可），
+	// 末跳的源版（_Mvn/_Common.typ）上穿一層出界，故輸出根的 _Common.typ 不復制源、
+	// 現場生成一層直達的轉發件：#import "tsinswreng-scriptorium/_.typ": *
+	await Write(OutRoot/Config.CommonTypstFileName, $"#import \"{Config.ScriptoriumDirectoryName}/_.typ\": *{Environment.NewLine}", Ct);
+}
+
+async Task RewriteEntryImports(Pth Output, CT Ct) {
+	// 家族A：文章以多層 ../ 直連 scriptorium（源樹深度耦合接線，目前僅 alt-nav）。
+	// 鏡像布局裏該相對路徑落點出界，統一改寫爲 root 絕對路徑：
+	// 發布副本只有 CLI 編譯、root 恆爲 OutRoot，不存在源樹的 tinymist 雙 root 顧慮。
+	// 精確匹配已知接線行，不做泛化改寫；只動發布副本裏的 .typ，源碼不動。
+	var LegacyImport = "../../../../tsinswreng-scriptorium/_.typ";
+	var RootAbsoluteImport = $"/{Config.ScriptoriumDirectoryName}/_.typ";
+	foreach (var FilePath in Directory.EnumerateFiles(Output, "*.typ", SearchOption.AllDirectories)) {
+		var Text = await File.ReadAllTextAsync(FilePath, Ct);
+		if (!Text.Contains(LegacyImport, StringComparison.Ordinal)) {
+			continue;
+		}
+		await File.WriteAllTextAsync(FilePath, Text.Replace(LegacyImport, RootAbsoluteImport), Ct);
+		await Echo($"rewired entry import: {Path.GetRelativePath(Output, FilePath)}", Ct);
+	}
 }
 
 List<ResolvedDoc> ResolveUnits(string Project, ManifestEnvelope Manifest) {
@@ -1088,9 +1175,11 @@ async Task<ManifestEnvelope> ReadManifest(string ManifestPath, CT Ct) {
 		throw new Exception($"{Config.ManifestFileName} is required: {ManifestPath}");
 	}
 	// V1 與 V2 兩個 label 一次取出：查不到的 label 回空數組而不報錯，所以舊項目不改也能繼續構建。
+	// root 指 manifest 所在目錄：Typst 要求入口必須在 root 內（root 指他處實測報
+	// source file must be contained in project root）；manifest 是純 metadata、無 import。
 	await using var Command = Cmd(Typst, [
 		"eval", Config.ManifestQueryExpression, "--in", ManifestPath,
-		"--root", Root, "--pretty",
+		"--root", Path.GetDirectoryName(ManifestPath)!, "--pretty",
 	], Ct);
 	var Result = await Command.Text(Ct);
 	var Found = JsonSerializer.Deserialize<ManifestQueryResult>(Result.Stdout, Json)
@@ -1185,6 +1274,10 @@ sealed class MvnConfig {
 	public string CheckCommand { get; } = "check";
 	public string BuildCommand { get; } = "build";
 	public string BuildAllCommand { get; } = "build-all";
+	public string BuildOutputOptionName { get; } = "-o";
+	// 鏡像自包含布局的固定目錄名：<OutRoot>/articles/<項目> 與整棵公共樹。
+	public string ArticlesDirectoryName { get; } = "articles";
+	public string ScriptoriumDirectoryName { get; } = "tsinswreng-scriptorium";
 	public string ListCommand { get; } = "list";
 	public string ZhihuCommand { get; } = "zhihu";
 	public string CompileCommand { get; } = "compile";
@@ -1193,7 +1286,7 @@ sealed class MvnConfig {
 	// 知乎控制台取得的圖片地址目前都位於 pic*.zhimg.com；限制 host 可及早發現複製到非 URL 資料。
 	public string ZhihuImageHostSuffix { get; } = ".zhimg.com";
 	// 无参数时显示的命令行用法。
-	public string UsageText => $"Usage: dotnet script Scriptorium.csx <check|build|build-all|list|zhihu|compile> [Manifest{TypstDocumentExtension}]";
+	public string UsageText => $"Usage: dotnet script Scriptorium.csx <check|build|build-all|list|zhihu|compile> [Manifest{TypstDocumentExtension}] (build 可選 {BuildOutputOptionName} <OutRoot>)";
 	// manifest 中声明的 OpenCC 生成器名称。
 	public string OpenCcGeneratorName { get; } = "OpenCC";
 	// manifest 暴露的 OpenCC 转换模式名称。

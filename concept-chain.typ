@@ -1,4 +1,5 @@
 #import "Enum/Cfg.typ" as Cfg
+#import "Enum/Html.typ" as Html
 #import "tsinswreng-auto-heading.typ": *
 #import "Enum/Targets.typ" as Targets
 #import "Target.typ": *
