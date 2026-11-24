@@ -267,7 +267,7 @@ async Task CompileSingle(CompileOptions Options, CT Ct) {
 	// 再現場編譯 .gen 圖源、把全部 marker 圖片內嵌成 data URI，最後按擴展名分流輸出。
 	var InputDirectory = Path.GetDirectoryName(Options.InputPath)!;
 	var SearchBases = CompileSearchBases(InputDirectory, Options.RootPath);
-	var TempHtml = Path.Combine(Path.GetTempPath(), $"scriptorium-{Config.CompileCommand}-{Guid.NewGuid():N}{Config.HtmlExtension}");
+	var TempHtml = Path.GetTempPath() / $"scriptorium-{Config.CompileCommand}-{Guid.NewGuid():N}{Config.HtmlExtension}";
 	try {
 		var CompileArgs = new List<string> {
 			"compile", "--root", Options.RootPath, "--format", Config.HtmlFormat,
@@ -389,7 +389,7 @@ string? FindCompileGeneratorSource(string AssetStem, List<string> SearchBases) {
 	foreach (var Candidate in Candidates.Distinct(StringComparer.Ordinal)) {
 		// 候選名優先於位置：先試完整名再試降級名，與 Build 一致。
 		foreach (var Base in SearchBases) {
-			var Full = Path.Combine(Base, Candidate);
+			var Full = Base / Candidate;
 			if (File.Exists(Full)) {
 				return Full;
 			}
@@ -409,7 +409,7 @@ string? FindCompileExistingAsset(string AssetPath, string AssetStem, List<string
 	var AssetDirectory = Path.GetDirectoryName(AssetPath) ?? "";
 	foreach (var Name in Names) {
 		foreach (var Base in SearchBases) {
-			var Full = AssetDirectory.Length == 0 ? Path.Combine(Base, Name) : Path.Combine(Base, AssetDirectory, Name);
+			var Full = AssetDirectory.Length == 0 ? Base / Name : Base / AssetDirectory / Name;
 			if (File.Exists(Full)) {
 				return Full;
 			}
@@ -420,7 +420,7 @@ string? FindCompileExistingAsset(string AssetPath, string AssetStem, List<string
 
 async Task<byte[]> CompileImageBytes(string SourcePath, string RootPath, ImageOutput Format, CT Ct) {
 	// 輸出先落臨時文件再讀回，避免 PNG 二進位走 stdout 的編碼不確定性。
-	var TempImage = Path.Combine(Path.GetTempPath(), $"scriptorium-{Config.CompileCommand}-{Guid.NewGuid():N}.{Format.Format}");
+	var TempImage = Path.GetTempPath() / $"scriptorium-{Config.CompileCommand}-{Guid.NewGuid():N}.{Format.Format}";
 	try {
 		var CompileArgs = new List<string> {
 			"compile", "--root", RootPath, "--format", Format.Format,
@@ -796,8 +796,8 @@ void RegisterDirectory(List<string> Existing, string Dir, string Project, bool A
 		if (string.Equals(Other, Dir, StringComparison.Ordinal)) {
 			throw new Exception($"duplicate directory: {Dir}");
 		}
-		if (IsUnder(Path.Combine(Project, Other), Path.Combine(Project, Dir))
-			|| IsUnder(Path.Combine(Project, Dir), Path.Combine(Project, Other))) {
+		if (IsUnder(Project / Other, Project / Dir)
+			|| IsUnder(Project / Dir, Project / Other)) {
 			throw new Exception($"directories must not contain each other: {Dir} and {Other}");
 		}
 	}
@@ -807,7 +807,7 @@ void RegisterDirectory(List<string> Existing, string Dir, string Project, bool A
 void RequireSourceFile(string Project, string Dir, string Doc) {
 	// 源項目裡的入口文件必須真實存在；生成目錄的對應文件要到發布副本生成後才檢查。
 	var Relative = ValidateRelativeFile(Doc, Config.TypstDocumentExtension);
-	var Full = Dir.Length == 0 ? Path.Combine(Project, Relative) : Path.Combine(Project, Dir, Relative);
+	var Full = Dir.Length == 0 ? Project / Relative : Project / Dir / Relative;
 	if (!File.Exists(Full)) {
 		throw new Exception($"entry file does not exist: {Dir}/{Relative}");
 	}
@@ -841,7 +841,7 @@ List<ResolvedDoc> ResolveDocs(string Project, ProjectManifest Manifest) {
 		// SrcDocs 是用戶維護的源文件，必須在源項目中真實存在。
 		var Source = ValidateRelativeFile(Entry.Key, Config.TypstDocumentExtension);
 		var Name = Source[..^Config.TypstDocumentExtension.Length];
-		var SourcePath = Path.GetFullPath(Path.Combine(Project, Source));
+		var SourcePath = Path.GetFullPath(Project / Source);
 		if (!File.Exists(SourcePath)) {
 			throw new Exception($"source document does not exist: {Source}");
 		}
@@ -910,8 +910,8 @@ async Task GenerateDocs(string Output, ProjectManifest Manifest, CT Ct) {
 			throw new Exception($"GeneratorOptions.Mode is required for {Target}");
 		}
 		var From = ValidateRelativeFile(Options.From, Config.TypstDocumentExtension);
-		var Input = Path.GetFullPath(Path.Combine(Output, From));
-		var Destination = Path.GetFullPath(Path.Combine(Output, Target));
+		var Input = Path.GetFullPath(Output / From);
+		var Destination = Path.GetFullPath(Output / Target);
 		// From 也必須位於發布副本內，且要在生成前已經隨項目複製過來。
 		if (!IsUnder(Input, Output) || !File.Exists(Input)) {
 			throw new Exception($"OpenCC source document does not exist in publish copy: {From}");
@@ -1126,7 +1126,7 @@ async Task RewriteHtmlImages(string HtmlPath, string Output, CT Ct) {
 			continue;
 		}
 		var AssetPath = Marker[Config.ImageMarkerPrefix.Length..].Replace('/', Path.DirectorySeparatorChar);
-		var AssetAbsolutePath = Path.GetFullPath(Path.Combine(Output, AssetPath));
+		var AssetAbsolutePath = Path.GetFullPath(Output / AssetPath);
 		// 同時檢查路徑邊界和文件存在性，避免生成一個打開後才失效的 HTML。
 		if (!IsUnder(AssetAbsolutePath, Output) || !File.Exists(AssetAbsolutePath)) {
 			throw new Exception($"HTML image asset does not exist: {AssetPath}");
@@ -1159,7 +1159,7 @@ async Task LinkHtmlStyle(string HtmlPath, string Output, CT Ct) {
 	Link.SetAttribute(Config.HtmlStyleMarkerAttribute, Config.HtmlStyleMarkerValue);
 	Link.SetAttribute("rel", "stylesheet");
 	// CSS 只在項目發布目錄寫一份；V2 的 HTML 在語言目錄下，故 href 要用相對路徑指回那一份。
-	var StylePath = Path.GetFullPath(Path.Combine(Output, Config.HtmlStyleFileName));
+	var StylePath = Path.GetFullPath(Output / Config.HtmlStyleFileName);
 	var StyleRelative = Path.GetRelativePath(Path.GetDirectoryName(HtmlPath)!, StylePath).Replace(Path.DirectorySeparatorChar, '/');
 	Link.SetAttribute("href", StyleRelative);
 	if (Link.Parent is null) {
