@@ -6,12 +6,18 @@
 #import "concept-chain.typ": *
 #import "Img.typ" as Img
 #import "AiSesn.typ" as AiSesn
+#import "ListFacade.typ" as ListFacade
 #import "@preview/cuti:0.4.0": regex-fakebold, show-cn-fakebold, show-cn-fakeitalic
 #import "@preview/numbly:0.1.0": numbly
 #import "@preview/cmarker:0.1.10"
 #let Md = cmarker.render
 #let MkImg = Img.MkImg
 #let MkImgGen = Img.MkImgGen
+
+// 列表門面（容器式）：#Ol[#L[...]]、#Ul[#L[...]]，實作與用法見 ListFacade.typ。
+#let Ol = ListFacade.Ol
+#let Ul = ListFacade.Ul
+#let L = ListFacade.L
 
 // 舊寫法段落：只負責切段（v），不再加 h(Cfg.CustomPIndent)。
 // 2026-11-05 起首行縮進由 _Show 的 set par(first-line-indent) 全局承擔；

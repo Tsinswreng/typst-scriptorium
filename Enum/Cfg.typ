@@ -50,6 +50,8 @@
 #let ColorListNum = ColorHeadingNum //rgb("00dddd")
 #let FigureCaptionTextSize = 0.9em
 #let FigureCaptionTextColor = luma(215)
-#let CustomPIndent = 2em
-#let ListIndent = CustomPIndent
-#let EnumIndent = CustomPIndent
+#let FirstLineIndent = 2em
+/// @deprecated
+#let CustomPIndent = FirstLineIndent
+#let ListIndent = FirstLineIndent
+#let EnumIndent = FirstLineIndent
