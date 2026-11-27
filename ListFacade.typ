@@ -79,12 +79,14 @@
 /// -> content
 #let Ul(body) = _MkList("ul", body)
 
-/// 列表項，形狀對齊 `auto-heading` 的 `#H[題][文]`。
+/// 項，形狀對齊 `auto-heading` 的 `#H[題][文]`。
 ///
-/// - 一個參數（`L[正文]`）：正文就是這一項的內容；
-/// - 兩個參數（`L[小題][正文]`）：小題獨佔首行，正文另起一行。
+/// - 一個參數（`I[正文]`）：正文就是這一項的內容；
+/// - 兩個參數（`I[小題][正文]`）：小題獨佔首行，正文另起一行。
+/// 命名哲學:
+/// I 是Item首字母, 又是H後一字母
 /// -> content
-#let L(..args) = context {
+#let I(..args) = context {
 	let kind = _Kind.get()
 	if kind == none { kind = "none" }
 	let d = _Depth.get()
