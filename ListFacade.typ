@@ -1,4 +1,6 @@
 #import "Enum/Cfg.typ" as Cfg
+#import "Target.typ": *
+#import "Enum/Targets.typ" as Targets
 #import "Internal.typ": ListMarkers
 
 // ══ 列表門面（容器式）══
@@ -95,29 +97,55 @@
 	let p = args.pos()
 	let title = p.at(0)
 	let body = if p.len() > 1 { p.at(1) } else { none }
-	// 縮進照項目列表的慣例：頂層也要縮一個單位（Render 的 Depth 從 1 起算）。
-	let indent = _Indent * (d + 1)
-	let marker = if kind == "ol" {
-		let prevCur = _CN(d).get().at(0)
-		_CN(d).step()
-		for i in range(d + 1, _MaxDepth) { _CN(i).update(_ => 0) }
-		let nums = range(base, d + 1).map(i => if i == d { prevCur + 1 } else { _CN(i).get().at(0) })
-		numbering(_NumberingPattern, ..nums)
-	} else if kind == "ul" {
-		ListMarkers.at(calc.rem(d - base, ListMarkers.len()))
-	} else {
-		//text(fill: red)[?]
-	}
-	block(above: _ItemSpacing, below: _ItemSpacing, breakable: true)[
-		#set par(first-line-indent: 0pt)
-		#h(indent)
-		#text(fill: Cfg.ColorListNum)[#marker]
-		#h(0.5em)
-		#if body == none { title } else if _IsBlocky(body) {
-			title + linebreak() + body
-		} else {
-			title + linebreak() + h(indent) + body
+	if Target == Targets.Html {
+		// HTML 靶：只發語義標籤，縮進與間距全交給 CSS。
+		// 有序的編號由這套計數器算出，用 <ol start> 帶過去；
+		// 每項自成一個列表，這是逐項 API 的代價，靠 CSS 把外距歸零。
+		let tag = if kind == "ol" { "ol" } else { "ul" }
+		// 計數器的 step/update 會回傳內容；不能放進算出 start 的那個 block，
+		// 否則整個 block 會變成 content 序列（Typst 代碼塊按序拼接各表達式）。
+		let prevCur = if kind == "ol" { _CN(d).get().at(0) } else { 0 }
+		if kind == "ol" {
+			_CN(d).step()
+			for i in range(d + 1, _MaxDepth) { _CN(i).update(_ => 0) }
 		}
-	]
+		let start = if kind == "ol" { str(prevCur + 1) } else { "1" }
+		let attrs = if kind == "ol" {
+			(class: "tswg-scrptm-li-wrap", start: start)
+		} else {
+			(class: "tswg-scrptm-li-wrap")
+		}
+		html.elem(tag, attrs: attrs)[
+			#html.elem("li", attrs: (class: "tswg-scrptm-li"))[
+				#title
+				#if body != none { linebreak(); body }
+			]
+		]
+	} else {
+		// 縮進照項目列表的慣例：頂層也要縮一個單位（Render 的 Depth 從 1 起算）。
+		let indent = _Indent * (d + 1)
+		let marker = if kind == "ol" {
+			let prevCur = _CN(d).get().at(0)
+			_CN(d).step()
+			for i in range(d + 1, _MaxDepth) { _CN(i).update(_ => 0) }
+			let nums = range(base, d + 1).map(i => if i == d { prevCur + 1 } else { _CN(i).get().at(0) })
+			numbering(_NumberingPattern, ..nums)
+		} else if kind == "ul" {
+			ListMarkers.at(calc.rem(d - base, ListMarkers.len()))
+		} else {
+			text(fill: red)[?]
+		}
+		block(above: _ItemSpacing, below: _ItemSpacing, breakable: true)[
+			#set par(first-line-indent: 0pt)
+			#h(indent)
+			#text(fill: Cfg.ColorListNum)[#marker]
+			#h(0.5em)
+			#if body == none { title } else if _IsBlocky(body) {
+				title + linebreak() + body
+			} else {
+				title + linebreak() + h(indent) + body
+			}
+		]
+	}
 	_Depth.update(n => n - 1)
 }

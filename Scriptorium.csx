@@ -1,3 +1,4 @@
+#!/usr/bin/env dotnet-script
 // Scriptorium：以 Typst 文檔入口 manifest 構建可搬運的發布副本。
 //
 // 本腳本的核心順序是：讀 manifest -> 複製項目 -> 生成文檔 -> 編譯 HTML

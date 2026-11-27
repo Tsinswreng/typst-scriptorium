@@ -144,6 +144,16 @@ li::marker {
 	color: #e6e6e6; /* ColorListNum */
 }
 
+/* 列表門面（#Ol/#Ul）在 HTML 靶的語義列表：
+   ul/ol > li + 每項一個列表，外距歸零；層級縮進由每層 wrap 的 padding 累加。 */
+.tswg-scrptm-li-wrap {
+	margin: 0;
+	padding-inline-start: calc(2 * var(--tswg-scrptm-em));
+}
+.tswg-scrptm-li {
+	text-indent: 0;
+}
+
 figure {
 	margin: calc(0.2 * var(--tswg-scrptm-em)) 0; /* Typst 塊默認間距 1.2em 減一條行距 */
 	text-align: center; /* PDF 是居中對齊 */
