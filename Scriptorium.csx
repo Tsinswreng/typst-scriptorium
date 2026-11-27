@@ -1026,39 +1026,25 @@ async Task ConvertHtmlToMarkdown(string HtmlPath, string MarkdownPath, CT Ct) {
 }
 
 string ConvertArticleToMarkdown(AngleSharp.Dom.IDocument Document, string FallbackHtml) {
-	// ReverseMarkdown 5 處理 <pre> 會丟掉圍欄，也會把行內換行壓掉；
-	// 先把每個 pre 換成佔位符，轉換完再填回標準的圍欄代碼塊。
-	// 語言取自 Typst HTML 輸出在 code 上的 data-lang 屬性。
-	var CodeBlocks = new List<(string Lang, string Text)>();
-	foreach (var Pre in Document.QuerySelectorAll("pre").ToArray()) {
-		var Code = Pre.QuerySelector("code");
-		var Lang = Code?.GetAttribute("data-lang") ?? "";
-		var Text = (Code ?? (AngleSharp.Dom.IElement)Pre).TextContent;
-		var Index = CodeBlocks.Count;
-		CodeBlocks.Add((Lang, Text));
-		Pre.OuterHtml = "\n\n@@CODEBLOCK" + Index + "@@\n\n";
+	// ReverseMarkdown 默認把 <pre> 轉成縮排純文字；開 GithubFlavored 才會輸出圍欄代碼塊。
+	// 它的語言標記認的是 class="language-x"，Typst 輸出的是 data-lang="x"，轉換前補上 class。
+	foreach (var Code in Document.QuerySelectorAll("pre code[data-lang]")) {
+		var Lang = Code.GetAttribute("data-lang");
+		if (!string.IsNullOrEmpty(Lang)) {
+			Code.ClassList.Add("language-" + Lang);
+		}
 	}
 	// 只把文章內容交給 ReverseMarkdown；外層 article 是發布頁容器，不屬於正文 Markdown。
 	// Typst HTML 會包含 figure 等語義容器；跳過未知外殼，讓庫繼續轉換其中的圖片和圖注。
 	var Article = Document.QuerySelector(Config.HtmlArticleSelector)?.InnerHtml
 		?? Document.Body?.InnerHtml
 		?? FallbackHtml;
-	// ReverseMarkdown 負責 HTML 標籤、列表和圖片的轉換；代碼塊由上面的佔位符另行填回。
+	// ReverseMarkdown 負責 HTML 標籤、列表、代碼和圖片的轉換；本腳本不維護第二套解析器。
 	var Converter = new ReverseMarkdown.Converter(new ReverseMarkdown.Config {
 		UnknownTags = ReverseMarkdown.Config.UnknownTagsOption.Bypass,
+		GithubFlavored = true,
 	});
-	var Markdown = Converter.Convert(Article).TrimEnd() + Environment.NewLine;
-	for (var Index = 0; Index < CodeBlocks.Count; Index++) {
-		var Lang = CodeBlocks[Index].Lang;
-		var Text = CodeBlocks[Index].Text.TrimEnd();
-		var Fence = "```";
-		while (Text.Contains(Fence, StringComparison.Ordinal)) {
-			Fence += "`";
-		}
-		var Block = "\n" + Fence + Lang + "\n" + Text + "\n" + Fence + "\n";
-		Markdown = Markdown.Replace("@@CODEBLOCK" + Index + "@@", Block, StringComparison.Ordinal);
-	}
-	return Markdown;
+	return Converter.Convert(Article).TrimEnd() + Environment.NewLine;
 }
 
 List<HtmlImage> DiscoverHtmlImages(List<string> HtmlPaths, string Output, string ProjectId) {
