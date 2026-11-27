@@ -14,7 +14,7 @@
 #let MkImg = Img.MkImg
 #let MkImgGen = Img.MkImgGen
 
-// 列表門面（容器式）：#Ol[#L[...]]、#Ul[#L[...]]，實作與用法見 ListFacade.typ。
+// 列表門面（容器式）：#Ol[#I[...]]、#Ul[#I[...]]，實作與用法見 ListFacade.typ。
 #let Ol = ListFacade.Ol
 #let Ul = ListFacade.Ul
 #let I = ListFacade.I
@@ -155,22 +155,10 @@
 		//auto //不分頁則tinymist預覽時會卡
 	}
 
-	// 底邊距要爲頁碼留出空間。
-	// 頁碼被放在正文本區下沿、再按 footer-descent 下沉，
-	// 底邊距太薄（如原來的 1em）會讓頁碼貼住紙邊。
-	set page(
-		margin: (rest: 1em, bottom: 2.4em),
-		fill: Cfg.ColorBack,
-		height: PageHeight,
-		//width: 14.8cm, // A5短邊 改寬度會出問題, 在typstᶤ繪ʹ圖表中 如鍵位圖等。解決此問題前 勿改頁寬。
-		// 頁碼。默認 number-align 是 center + bottom，即底部居中。
-		numbering: "1",
-		// 默認 30% 會把頁碼放在正文末行正下方、其下留大片空白；
-		// 實測 60% 落在紙底上方約 2–5mm；
-		// 80% 起又貼紙邊，100% 會被推出頁面。
-		footer-descent: 60%,
-	)
-	
+	// 頁面設定移到函數末尾、放進 context：只能在文檔根做。
+	// 用 target() 判斷實際導出格式，而不是項目自訂的 Target 常量；
+	// tinymist 的 Markdown 導出走 HTML 導出、又不會把 Target 設成 Html，
+	// 頁面規則會落進導出器的容器裏，報 page configuration is not allowed inside of containers。
 
 	// HTML 靶：CSS 的 strong 規則同色（見頂部「HTML 靶樣式」註釋）。
 	show strong: set text(Cfg.ColorStrong)
@@ -563,9 +551,26 @@
 		
 	}
 
-	if Target == Targets.Html {
+	let Out = if Target == Targets.Html {
 		HtmlDocument(Styled)
 	} else {
 		Styled
+	}
+	context {
+		if target() == "html" { Out } else {
+			// 底邊距要爲頁碼留出空間。頁碼被放在正文本區下沿、
+			// 再按 footer-descent 下沉，底邊距太薄會讓頁碼貼住紙邊。
+			set page(
+				margin: (rest: 1em, bottom: 2.4em),
+				fill: Cfg.ColorBack,
+				height: PageHeight,
+				//width: 14.8cm, // A5短邊 改寬度會出問題, 在typstᶤ繪ʹ圖表中 如鍵位圖等。解決此問題前 勿改頁寬。
+				numbering: "1",
+				// 默認 30% 會把頁碼放在正文末行正下方、其下留大片空白；
+				// 實測 60% 落在紙底上方約 2–5mm；80% 起又貼紙邊，100% 會被推出頁面。
+				footer-descent: 60%,
+			)
+			Out
+		}
 	}
 }

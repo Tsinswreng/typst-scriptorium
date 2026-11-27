@@ -4,8 +4,8 @@
 // ══ 列表門面（容器式）══
 // 用法：
 //   #Ol[
-//     #L[項一]
-//     #L[小題][項二的正文]
+//     #I[項一]
+//     #I[小題][項二的正文]
 //   ]
 //   #Ul[ ... ]
 // 每個容器是一個實例：進場把有序計數歸零、出場還原，
@@ -34,7 +34,7 @@
 
 // 判斷正文是否以塊級元素開頭（例如正文只有子項、或直接放了 block）。
 // 這種情況不能給正文加首行縮進的 h()，否則會多出一個空行。
-// 嵌套的 L 產物是 context 元素，用 (context [ ]) 取它的 func 作比對。
+// 嵌套的 I 產物是 context 元素，用 (context [ ]) 取它的 func 作比對。
 #let _ContextFunc = (context [ ]).func()
 #let _IsBlocky(c) = {
 	let kids = if c.has("children") { c.children } else { (c,) }
@@ -67,13 +67,13 @@
 	}
 }
 
-/// 有序列表的容器。內容裏用 `L` 寫項。
+/// 有序列表的容器。內容裏用 `I` 寫項。
 ///
 /// - body (content): 容器內容
 /// -> content
 #let Ol(body) = _MkList("ol", body)
 
-/// 無序列表的容器。內容裏用 `L` 寫項。
+/// 無序列表的容器。內容裏用 `I` 寫項。
 ///
 /// - body (content): 容器內容
 /// -> content
